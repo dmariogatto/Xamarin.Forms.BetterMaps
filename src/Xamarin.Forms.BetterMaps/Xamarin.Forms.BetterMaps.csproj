@@ -1,0 +1,79 @@
+﻿<Project Sdk="MSBuild.Sdk.Extras/2.0.54">
+	<PropertyGroup>
+		<TargetFrameworks>netstandard2.1;xamarin.ios10;monoandroid10.0;monoandroid9.0;</TargetFrameworks>
+    <LangVersion>latest</LangVersion>
+
+    <AssemblyName>Xamarin.Forms.BetterMaps</AssemblyName>
+    <RootNamespace>Xamarin.Forms.BetterMaps</RootNamespace>
+    <PackageId>Xamarin.Forms.BetterMaps</PackageId>
+    <Summary>A drop in replacement for Xamarin.Forms.Maps</Summary>
+    <PackageTags>xamarin forms xamarin.forms maps android ios</PackageTags>
+    <Title>Xamarin.Forms.BetterMaps</Title>
+    <Description>
+A more useful maps control for Android &#38; iOS, based off Xamarin.Forms.Maps.
+
+- Custom pins
+- Themes
+- Interactive events
+- &#38; more!
+    </Description>
+    <Product>$(AssemblyName) ($(TargetFramework))</Product>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <AssemblyFileVersion>1.0.0.0</AssemblyFileVersion>
+    <Version>0.0.1.0-pre</Version>
+    <PackageVersion>0.0.1.0-pre</PackageVersion>
+    <Authors>dmariogatto</Authors>
+    <Owners>dmariogatto</Owners>
+    <NeutralLanguage>en</NeutralLanguage>
+    <Copyright>© Daniel Gatto</Copyright>
+    <RepositoryUrl>https://github.com/dmariogatto/Xamarin.Forms.BetterMaps</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryType>git</RepositoryType>
+    <PackageReleaseNotes>
+- Initial release
+    </PackageReleaseNotes>
+	</PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <DebugType>full</DebugType>
+    <DebugSymbols>true</DebugSymbols>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+    <DebugType Condition=" !$(TargetFramework.StartsWith('monoandroid')) ">portable</DebugType>
+    <DebugType Condition=" $(TargetFramework.StartsWith('monoandroid')) ">full</DebugType>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Xamarin.Forms" Version="4.5.0.356" />
+
+    <Compile Remove="Platforms\**\*.*" />
+    <None Include="Platforms\**\*.*" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$(TargetFramework.StartsWith('monoandroid'))">
+    <AndroidResource Include="Resources\**\*.axml" SubType="Designer" Generator="MSBuild:UpdateAndroidResources" />
+    <AndroidResource Include="Resources\**\*.xml" SubType="Designer" Generator="MSBuild:UpdateAndroidResources" />
+    <AndroidResource Include="Resources\**\*.png" SubType="Designer" Generator="MSBuild:UpdateAndroidResources" />
+    <Compile Include="Platforms\android\**\*.cs" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$(TargetFramework.StartsWith('monoandroid9'))">
+    <PackageReference Include="Xamarin.GooglePlayServices.Maps" Version="71.1610.1" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$(TargetFramework.StartsWith('monoandroid10'))">
+    <PackageReference Include="Xamarin.GooglePlayServices.Maps" Version="117.0.0" />
+  </ItemGroup>
+
+  <PropertyGroup Condition="$(TargetFramework.StartsWith('monoandroid10'))">
+    <DefineConstants>$(DefineConstants);ANDROIDX</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup Condition=" $(TargetFramework.StartsWith('netstandard'))">
+  </ItemGroup>
+
+  <ItemGroup Condition="$(TargetFramework.StartsWith('xamarin.ios')) ">
+    <Compile Include="Platforms\ios\**\*.cs" />
+  </ItemGroup>
+</Project>
