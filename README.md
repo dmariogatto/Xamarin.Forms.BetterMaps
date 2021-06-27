@@ -2,17 +2,17 @@
 
 [![](https://img.shields.io/nuget/v/Xamarin.Forms.BetterMaps.svg)](https://nuget.org/packages/Xamarin.Forms.BetterMaps)
 
-A more useful maps control for Android & iOS, based off [Xamarin.Forms.Maps](https://nuget.org/packages/Xamarin.Forms.Maps).
+A more useful maps control for Android & iOS, based off of [Xamarin.Forms.Maps](https://nuget.org/packages/Xamarin.Forms.Maps).
 
 ## Why?
 
-- Custom pins (including image, tint colour, anchor & Z-index)
+- Custom pins (including image, tint colour, anchor & z-index)
 - User location button
 - Compass button
 - Map themes (light & dark)
 - Tapped events
   - Map tapped
-  - Marker tapped
+  - Pin tapped
   - Info window tapped
   - Info window long tapped
 
@@ -40,9 +40,9 @@ __New Pin Properties__
 
 | Property                  | Description                                                                     |
 |---------------------------|---------------------------------------------------------------------------------|
-| `TintColor`               | Sets a tint colour for the pin, or image (if `FileImageSource` is set)          |
+| `TintColor`               | Sets a tint colour for the pin, or image (if `ImageSource` is set)              |
 | `Anchor`                  | The coordinates to anchor the pin (e.g. to centre pin on location `(0.5, 0.5)`) |
-| `FileImageSourceProperty` | Name of file image resource (i.e. custom pin image)                             |
+| `ImageSourceProperty`     | Name of file image resource (i.e. custom pin image)                             |
 | `ZIndex`                  | The z-index of the pin                                                          |
 
 ### Android
