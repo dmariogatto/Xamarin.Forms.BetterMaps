@@ -66,7 +66,7 @@ namespace Xamarin.Forms.BetterMaps.Android
             OnMapReady(map);
         }
 
-#region Overrides
+        #region Overrides
 
         public override SizeRequest GetDesiredSize(int widthConstraint, int heightConstraint)
             => new SizeRequest(new Size(Context.ToPixels(40), Context.ToPixels(40)));
@@ -213,7 +213,7 @@ namespace Xamarin.Forms.BetterMaps.Android
                 UpdateVisibleRegion(MapNative.CameraPosition.Target);
 
         }
-#endregion
+        #endregion
 
         protected virtual void OnMapReady(GoogleMap map)
         {
@@ -267,7 +267,7 @@ namespace Xamarin.Forms.BetterMaps.Android
             return opts;
         }
 
-#region Map
+        #region Map
         private void OnMapClick(object sender, GoogleMap.MapClickEventArgs e)
         {
             MapModel.SendMapClicked(new Position(e.Point.Latitude, e.Point.Longitude));
@@ -376,9 +376,9 @@ namespace Xamarin.Forms.BetterMaps.Android
         {
             UpdateVisibleRegion(MapNative.CameraPosition.Target);
         }
-#endregion
+        #endregion
 
-#region Pins
+        #region Pins
         private void AddPins(IList<Pin> pins)
         {
             if (MapNative == null) return;
@@ -579,9 +579,9 @@ namespace Xamarin.Forms.BetterMaps.Android
                 _markers.Remove(marker.Id);
             }
         }
-#endregion
+        #endregion
 
-#region MapElements
+        #region MapElements
         private void MapElementPropertyChanged(object sender, PropertyChangedEventArgs e)
         {
             switch (sender)
@@ -673,9 +673,9 @@ namespace Xamarin.Forms.BetterMaps.Android
                 element.MapElementId = null;
             }
         }
-#endregion
+        #endregion
 
-#region Polylines
+        #region Polylines
         protected virtual PolylineOptions CreatePolylineOptions(Polyline polyline)
         {
             var opts = new PolylineOptions();
@@ -733,9 +733,9 @@ namespace Xamarin.Forms.BetterMaps.Android
                 _polylines.Remove(native.Id);
             }
         }
-#endregion
+        #endregion
 
-#region Polygons
+        #region Polygons
         protected virtual PolygonOptions CreatePolygonOptions(Polygon polygon)
         {
             var opts = new PolygonOptions();
@@ -806,9 +806,9 @@ namespace Xamarin.Forms.BetterMaps.Android
                 _polygons.Remove(native.Id);
             }
         }
-#endregion
+        #endregion
 
-#region Circles
+        #region Circles
         protected virtual CircleOptions CreateCircleOptions(Circle circle)
         {
             var opts = new CircleOptions()
@@ -871,7 +871,7 @@ namespace Xamarin.Forms.BetterMaps.Android
                 _circles.Remove(native.Id);
             }
         }
-#endregion
+        #endregion
 
         private void CleanUpMapModelElements(Map mapModel)
         {

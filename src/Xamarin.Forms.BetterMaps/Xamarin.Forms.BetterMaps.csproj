@@ -59,7 +59,7 @@ A more useful maps control for Android &#38; iOS, based off Xamarin.Forms.Maps.
   </ItemGroup>
 
   <ItemGroup Condition="$(TargetFramework.StartsWith('monoandroid9'))">
-    <PackageReference Include="Xamarin.GooglePlayServices.Maps" Version="71.1610.1" />
+    <PackageReference Include="Xamarin.GooglePlayServices.Maps" Version="71.1610.0" />
   </ItemGroup>
 
   <ItemGroup Condition="$(TargetFramework.StartsWith('monoandroid10'))">
