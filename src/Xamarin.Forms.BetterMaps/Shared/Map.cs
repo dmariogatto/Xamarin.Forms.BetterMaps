@@ -29,7 +29,7 @@ namespace Xamarin.Forms.BetterMaps
             BindableProperty.Create(nameof(ShowCompass), typeof(bool), typeof(Map), true);
 
         public static readonly BindableProperty SelectedPinProperty =
-            BindableProperty.Create(nameof(SelectedPin), typeof(Pin), typeof(Map), null);
+            BindableProperty.Create(nameof(SelectedPin), typeof(Pin), typeof(Map), default(Pin));
 
         public static readonly BindableProperty TrafficEnabledProperty =
             BindableProperty.Create(nameof(TrafficEnabled), typeof(bool), typeof(Map), default(bool));
@@ -152,7 +152,7 @@ namespace Xamarin.Forms.BetterMaps
 
         public event EventHandler<MapClickedEventArgs> MapClicked;
         public event EventHandler<EventArgs> SelectedPinChanged;
-        public event EventHandler<PinClickedEventArgs> PinClicked;
+        public event EventHandler<PinClickedEventArgs> MarkerClicked;
         public event EventHandler<PinClickedEventArgs> InfoWindowClicked;
         public event EventHandler<PinClickedEventArgs> InfoWindowLongClicked;
 
@@ -163,10 +163,10 @@ namespace Xamarin.Forms.BetterMaps
         public void SendSelectedPinChanged() => SelectedPinChanged?.Invoke(this, new EventArgs());
 
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public bool SendPinClick(Pin marker)
+        public bool SendMarkerClick(Pin marker)
         {
             var args = new PinClickedEventArgs(marker);
-            PinClicked?.Invoke(this, args);
+            MarkerClicked?.Invoke(this, args);
             return args.HideInfoWindow;
         }
 

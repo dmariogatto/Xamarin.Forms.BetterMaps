@@ -6,6 +6,8 @@ A more useful maps control for Android & iOS, based off of [Xamarin.Forms.Maps](
 
 ## Why?
 
+Pretty much I just wanted custom pins, but I got a little carried away, see my [blog post](https://dgatto.com/posts/2021/06/xforms-better-maps/) for more details. In summary,
+
 - Custom pins (including image, tint colour, anchor & z-index)
 - User location button
 - Compass button
@@ -32,7 +34,7 @@ __New Map Properties/Events__
 | Event                    | Description                                                              |
 |--------------------------|--------------------------------------------------------------------------|
 | `SelectedPinChanged`     | Fired when selected pin is changed                                       |
-| `PinClicked`             | Fired when user taps on a pin                                            |
+| `MarkerClicked`          | Fired when user taps on a pin                                            |
 | `InfoWindowClicked`      | Fired when user taps the info window (visible when pin is selected)      |
 | `InfoWindowLongClicked`  | Fired when user long taps the info window (visible when pin is selected) |
 
@@ -48,12 +50,12 @@ __New Pin Properties__
 ### Android
 
 ```csharp
-public override bool FinishedLaunching(UIApplication app, NSDictionary options)
+public override void OnCreate(Bundle savedInstanceState)
 {
     ...    
     Xamarin.FormsBetterMaps.Init(this, savedInstanceState);
 
-    // Light/dark theme need custom JSON style files (https://mapstyle.withgoogle.com/) added to 'Assets'
+    // Light/dark theme requires custom JSON style files (https://mapstyle.withgoogle.com/) added to 'Assets'
     Xamarin.FormsBetterMaps.SetLightThemeAsset("map.style.light.json");
     Xamarin.FormsBetterMaps.SetDarkThemeAsset("map.style.dark.json");    
     ...

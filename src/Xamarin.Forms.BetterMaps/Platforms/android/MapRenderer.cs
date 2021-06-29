@@ -187,7 +187,7 @@ namespace Xamarin.Forms.BetterMaps.Android
             else if (e.PropertyName == Map.IsShowingUserProperty.PropertyName)
                 SetUserVisible();
             else if (e.PropertyName == Map.ShowUserLocationButtonProperty.PropertyName)
-                MapNative.UiSettings.MyLocationButtonEnabled = MapModel.ShowUserLocationButton;
+                SetMyLocationButtonEnabled();
             else if (e.PropertyName == Map.ShowCompassProperty.PropertyName)
                 MapNative.UiSettings.CompassEnabled = MapModel.ShowCompass;
             else if (e.PropertyName == Map.SelectedPinProperty.PropertyName)
@@ -229,7 +229,6 @@ namespace Xamarin.Forms.BetterMaps.Android
             map.MapClick += OnMapClick;
 
             map.TrafficEnabled = MapModel.TrafficEnabled;
-            map.UiSettings.MyLocationButtonEnabled = MapModel.ShowUserLocationButton;
             map.UiSettings.CompassEnabled = MapModel.ShowCompass;
 
             map.UiSettings.ZoomControlsEnabled = false;
@@ -239,6 +238,7 @@ namespace Xamarin.Forms.BetterMaps.Android
             map.UiSettings.MapToolbarEnabled = false;
 
             SetUserVisible();
+            SetMyLocationButtonEnabled();
             SetMapType();
 
             MoveToRegion(Element.LastMoveToRegion, false);
@@ -333,16 +333,20 @@ namespace Xamarin.Forms.BetterMaps.Android
             Element.SetVisibleRegion(new MapSpan(new Position(pos.Latitude, pos.Longitude), dlat, dlong, MapNative.CameraPosition.Bearing));
         }
 
+        private bool HasLocationPermission()
+        {
+            var coarseLocationPermission = ContextCompat.CheckSelfPermission(Context, Manifest.Permission.AccessCoarseLocation);
+            var fineLocationPermission = ContextCompat.CheckSelfPermission(Context, Manifest.Permission.AccessFineLocation);
+            return coarseLocationPermission == Permission.Granted || fineLocationPermission == Permission.Granted;
+        }
+
         private void SetUserVisible()
         {
             if (MapNative == null) return;
 
             if (MapModel.IsShowingUser)
             {
-                var coarseLocationPermission = ContextCompat.CheckSelfPermission(Context, Manifest.Permission.AccessCoarseLocation);
-                var fineLocationPermission = ContextCompat.CheckSelfPermission(Context, Manifest.Permission.AccessFineLocation);
-
-                if (coarseLocationPermission == Permission.Granted || fineLocationPermission == Permission.Granted)
+                if (HasLocationPermission())
                 {
                     MapNative.MyLocationEnabled = true;
                 }
@@ -355,6 +359,28 @@ namespace Xamarin.Forms.BetterMaps.Android
             else
             {
                 MapNative.MyLocationEnabled = false;
+            }
+        }
+
+        private void SetMyLocationButtonEnabled()
+        {
+            if (MapNative == null) return;
+
+            if (MapModel.ShowUserLocationButton)
+            {
+                if (HasLocationPermission())
+                {
+                    MapNative.UiSettings.MyLocationButtonEnabled = true;
+                }
+                else
+                {
+                    Log.Warning("Xamarin.Forms.MapRenderer", "Missing location permissions for MyLocationButtonEnabled");
+                    MapNative.UiSettings.MyLocationButtonEnabled = false;
+                }
+            }
+            else
+            {
+                MapNative.UiSettings.MyLocationButtonEnabled = false;
             }
         }
 
@@ -436,7 +462,7 @@ namespace Xamarin.Forms.BetterMaps.Android
             }
         }
 
-        private Bitmap GetMarkerBitmap(ImageSource imgSource, Color tint)
+        protected virtual Bitmap GetMarkerBitmap(ImageSource imgSource, Color tint)
         {
             if (imgSource == null)
                 return default;
@@ -491,7 +517,7 @@ namespace Xamarin.Forms.BetterMaps.Android
             if (pin == null) return;
 
             // Setting e.Handled = true will prevent the info window from being presented
-            var handled = MapModel.SendPinClick(pin);
+            var handled = MapModel.SendMarkerClick(pin);
             e.Handled = handled;
         }
 

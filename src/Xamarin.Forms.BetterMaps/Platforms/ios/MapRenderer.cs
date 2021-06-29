@@ -273,7 +273,7 @@ namespace Xamarin.Forms.BetterMaps.iOS
 
                 // SendMarkerClick() returns the value of PinClickedEventArgs.HideInfoWindow
                 // Hide the info window by deselecting the annotation
-                var deselect = MapModel.SendPinClick(pin);
+                var deselect = MapModel.SendMarkerClick(pin);
                 if (deselect) MapNative.DeselectAnnotation(annotation, false);
             }
         }
@@ -623,7 +623,7 @@ namespace Xamarin.Forms.BetterMaps.iOS
             }
         }
 
-        private UIImage GetMarkerImage(ImageSource imgSource, UIColor tint)
+        protected virtual UIImage GetMarkerImage(ImageSource imgSource, UIColor tint)
         {
             if (imgSource == null)
                 return default;
