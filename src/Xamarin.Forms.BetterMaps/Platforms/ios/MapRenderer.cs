@@ -9,6 +9,8 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using UIKit;
 using Xamarin.Forms.Platform.iOS;
 using RectangleF = CoreGraphics.CGRect;
@@ -18,10 +20,14 @@ namespace Xamarin.Forms.BetterMaps.iOS
     [Preserve(AllMembers = true)]
     public class MapRenderer : ViewRenderer
     {
+        private static readonly TimeSpan UIImageCacheTime = TimeSpan.FromMinutes(2);
+        private static readonly Lazy<UIImage> UIImageEmpty = new Lazy<UIImage>(() => new UIImage());
+        private static readonly UIColor Transparent = Color.Transparent.ToUIColor();
+
         private readonly Dictionary<IMKAnnotation, Pin> _pinLookup = new Dictionary<IMKAnnotation, Pin>();
         private readonly Dictionary<IMKOverlay, MapElement> _elementLookup = new Dictionary<IMKOverlay, MapElement>();
 
-        private readonly UIColor _transparent = Color.Transparent.ToUIColor();
+        private readonly SemaphoreSlim _uiImageSemaphore = new SemaphoreSlim(1, 1);
 
         private CLLocationManager _locationManager;
         private bool _shouldUpdateRegion;
@@ -177,18 +183,7 @@ namespace Xamarin.Forms.BetterMaps.iOS
 
         #region Annotations
         protected virtual IMKAnnotation CreateAnnotation(Pin pin)
-        {
-            return new FormsMKPointAnnotation
-            {
-                TintColor = pin.TintColor.ToUIColor(),
-                Title = pin.Label,
-                Subtitle = pin.Address ?? string.Empty,
-                Coordinate = new CLLocationCoordinate2D(pin.Position.Latitude, pin.Position.Longitude),
-                Anchor = new CGPoint((float)pin.Anchor.X, (float)pin.Anchor.Y),
-                ZIndex = pin.ZIndex,
-                ImageSource = pin.ImageSource
-            };
-        }
+            => new FormsMKPointAnnotation(pin);
 
         protected virtual MKAnnotationView GetViewForAnnotation(MKMapView mapView, IMKAnnotation annotation)
         {
@@ -203,10 +198,19 @@ namespace Xamarin.Forms.BetterMaps.iOS
             const string customImgAnnotationId = nameof(customImgAnnotationId);
 
             var fAnnotation = (FormsMKPointAnnotation)annotation;
+            var pin = fAnnotation.Pin;
 
-            var pinImage = GetMarkerImage(fAnnotation.ImageSource, fAnnotation.TintColor);
-            if (pinImage != null)
+            pin._imageSourceCts?.Cancel();
+            pin._imageSourceCts?.Dispose();
+            pin._imageSourceCts = null;
+
+            var imageTask = GetMarkerBitmapAsync(fAnnotation.ImageSource, fAnnotation.TintColor);
+            if (imageTask != null)
             {
+                var cts = new CancellationTokenSource();
+                var tok = cts.Token;
+                pin._imageSourceCts = cts;
+
                 mapPin = mapView.DequeueReusableAnnotation(customImgAnnotationId);
 
                 if (mapPin == null)
@@ -217,7 +221,22 @@ namespace Xamarin.Forms.BetterMaps.iOS
 
                 mapPin.Annotation = annotation;
                 mapPin.Layer.AnchorPoint = fAnnotation.Anchor;
-                mapPin.Image = pinImage;
+
+                if (imageTask.IsCompletedSuccessfully)
+                {
+                    var image = imageTask.Result;
+                    mapPin.Image = image;
+                }
+                else
+                {
+                    mapPin.Image = UIImageEmpty.Value;
+
+                    imageTask.ContinueWith(t =>
+                    {
+                        if (t.IsCompletedSuccessfully && !tok.IsCancellationRequested)
+                            ApplyUIImageToView(t.Result, mapPin, tok);
+                    });
+                }
 
                 if (FormsBetterMaps.iOs14OrNewer)
                     mapPin.ZPriority = fAnnotation.ZIndex;
@@ -576,7 +595,9 @@ namespace Xamarin.Forms.BetterMaps.iOS
 
         private void PinOnPropertyChanged(object sender, PropertyChangedEventArgs e)
         {
-            if (sender is Pin pin && pin.MarkerId is FormsMKPointAnnotation annotation)
+            if (sender is Pin pin &&
+                pin.MarkerId is FormsMKPointAnnotation annotation &&
+                ReferenceEquals(pin, annotation.Pin))
             {
                 if (e.PropertyName == Pin.LabelProperty.PropertyName)
                 {
@@ -593,20 +614,20 @@ namespace Xamarin.Forms.BetterMaps.iOS
                 }
                 else if (e.PropertyName == Pin.AnchorProperty.PropertyName)
                 {
-                    annotation.Anchor = new CGPoint((float)pin.Anchor.X, (float)pin.Anchor.Y);
-                    if (MapNative.ViewForAnnotation(annotation) is MKAnnotationView view) view.Layer.AnchorPoint = annotation.Anchor;
+                    if (MapNative.ViewForAnnotation(annotation) is MKAnnotationView view)
+                        view.Layer.AnchorPoint = annotation.Anchor;
                 }
                 else if (e.PropertyName == Pin.ZIndexProperty.PropertyName)
                 {
-                    annotation.ZIndex = pin.ZIndex;
                     if (FormsBetterMaps.iOs14OrNewer && MapNative.ViewForAnnotation(annotation) is MKAnnotationView view)
                         view.SetValueForKey(new NSNumber((float)annotation.ZIndex), new NSString(nameof(view.ZPriority)));
                 }
                 else if (e.PropertyName == Pin.ImageSourceProperty.PropertyName ||
                          e.PropertyName == Pin.TintColorProperty.PropertyName)
                 {
-                    annotation.TintColor = pin.TintColor.ToUIColor();
-                    annotation.ImageSource = pin.ImageSource;
+                    pin._imageSourceCts?.Cancel();
+                    pin._imageSourceCts?.Dispose();
+                    pin._imageSourceCts = null;
 
                     switch (MapNative.ViewForAnnotation(annotation))
                     {
@@ -614,32 +635,65 @@ namespace Xamarin.Forms.BetterMaps.iOS
                             pinView.SetValueForKey(annotation.TintColor, new NSString(nameof(pinView.PinTintColor)));
                             break;
                         case MKAnnotationView view:
-                            var pinImage = GetMarkerImage(annotation.ImageSource, annotation.TintColor);
-                            if (pinImage != null)
-                                view.SetValueForKey(pinImage, new NSString(nameof(view.Image)));
+                            var cts = new CancellationTokenSource();
+                            var tok = cts.Token;
+                            pin._imageSourceCts = cts;
+
+                            var imageTask = GetMarkerBitmapAsync(annotation.ImageSource, annotation.TintColor);
+                            if (imageTask.IsCompletedSuccessfully)
+                            {
+                                var image = imageTask.Result;
+                                view.SetValueForKey(image, new NSString(nameof(view.Image)));
+                            }
+                            else
+                            {
+                                imageTask.ContinueWith(t =>
+                                {
+                                    if (t.IsCompletedSuccessfully && !tok.IsCancellationRequested)
+                                        ApplyUIImageToView(t.Result, view, tok);
+                                });
+                            }
                             break;
                     }
                 }
             }
         }
 
-        protected virtual UIImage GetMarkerImage(ImageSource imgSource, UIColor tint)
+        private void ApplyUIImageToView(UIImage image, MKAnnotationView view, CancellationToken ct)
+        {
+            if (ct.IsCancellationRequested)
+                return;
+
+            void setImage()
+            {
+                if (ct.IsCancellationRequested)
+                    return;
+                view.SetValueForKey(image, new NSString(nameof(view.Image)));
+            }
+
+            if (Device.IsInvokeRequired)
+                Device.BeginInvokeOnMainThread(setImage);
+            else
+                setImage();
+        }
+
+        protected virtual async Task<UIImage> GetMarkerBitmapAsync(ImageSource imgSource, UIColor tint)
         {
             if (imgSource == null)
                 return default;
 
             var image = default(UIImage);
 
-            if (!tint.IsEqual(_transparent))
+            if (!tint.IsEqual(Transparent))
             {
-                var cacheKey = imgSource.CacheId() is string cId && !string.IsNullOrEmpty(cId)
-                    ? $"TintedBitmap_{HashCode.Combine(cId, tint)}"
+                var imgKey = imgSource.CacheId();
+                var cacheKey = !string.IsNullOrEmpty(imgKey)
+                    ? $"XFBM_UIImageTinted_{HashCode.Combine(imgKey, tint)}"
                     : string.Empty;
 
                 if (FormsBetterMaps.Cache == null || !FormsBetterMaps.Cache.TryGetValue(cacheKey, out image))
                 {
-                    // a necessary evil
-                    image = imgSource.LoadNativeAsync().Result;
+                    image = await GetUIImageAsync(imgSource).ConfigureAwait(false);
 
                     UIGraphics.BeginImageContextWithOptions(image.Size, false, image.CurrentScale);
                     var context = UIGraphics.GetCurrentContext();
@@ -659,7 +713,41 @@ namespace Xamarin.Forms.BetterMaps.iOS
                 }
             }
 
-            return image ?? imgSource.LoadNativeAsync().Result;
+            return image ?? await GetUIImageAsync(imgSource).ConfigureAwait(false);
+        }
+
+        private async Task<UIImage> GetUIImageAsync(ImageSource imgSource)
+        {
+            await _uiImageSemaphore.WaitAsync().ConfigureAwait(false);
+
+            var uiImageTask = default(Task<UIImage>);
+
+            try
+            {
+                var imgKey = imgSource.CacheId();
+                var cacheKey = !string.IsNullOrEmpty(imgKey)
+                    ? $"XFBM_UIImageTask_{HashCode.Combine(imgKey)}"
+                    : string.Empty;
+
+                var fromCache =
+                    !string.IsNullOrEmpty(cacheKey) &&
+                    FormsBetterMaps.Cache != null &&
+                    FormsBetterMaps.Cache.TryGetValue(cacheKey, out uiImageTask);
+
+                uiImageTask ??= imgSource.LoadNativeAsync(default);
+                if (!string.IsNullOrEmpty(cacheKey) && !fromCache)
+                    FormsBetterMaps.Cache?.SetSliding(cacheKey, uiImageTask, UIImageCacheTime);
+            }
+            catch (System.Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine(ex);
+            }
+            finally
+            {
+                _uiImageSemaphore.Release();
+            }
+
+            return await (uiImageTask ?? Task.FromResult(default(UIImage))).ConfigureAwait(false);
         }
 
         protected Pin GetPinForAnnotation(IMKAnnotation annotation)

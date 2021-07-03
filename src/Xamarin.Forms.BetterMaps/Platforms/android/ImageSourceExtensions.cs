@@ -1,5 +1,6 @@
 ﻿using Android.Content;
 using Android.Graphics;
+using System.Threading;
 using System.Threading.Tasks;
 using Xamarin.Forms.Platform.Android;
 
@@ -7,12 +8,12 @@ namespace Xamarin.Forms.BetterMaps
 {
     internal static class ImageSourceExtensions
     {
-        public static Task<Bitmap> LoadNativeAsync(this ImageSource source, Context context) => source switch
+        public static Task<Bitmap> LoadNativeAsync(this ImageSource source, Context context, CancellationToken ct) => source switch
         {
-            UriImageSource _ => new ImageLoaderSourceHandler().LoadImageAsync(source, context),
-            FileImageSource _ => new FileImageSourceHandler().LoadImageAsync(source, context),
-            FontImageSource _ => new FontImageSourceHandler().LoadImageAsync(source, context),
-            StreamImageSource _ => new StreamImagesourceHandler().LoadImageAsync(source, context),
+            UriImageSource _ => new ImageLoaderSourceHandler().LoadImageAsync(source, context, ct),
+            FileImageSource _ => new FileImageSourceHandler().LoadImageAsync(source, context, ct),
+            FontImageSource _ => new FontImageSourceHandler().LoadImageAsync(source, context, ct),
+            StreamImageSource _ => new StreamImagesourceHandler().LoadImageAsync(source, context, ct),
             _ => null
         };
 

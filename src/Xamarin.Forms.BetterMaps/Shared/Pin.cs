@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel;
+using System.Threading;
 
 namespace Xamarin.Forms.BetterMaps
 {
@@ -27,6 +28,8 @@ namespace Xamarin.Forms.BetterMaps
             BindableProperty.Create(nameof(ZIndex), typeof(int), typeof(Pin));
 
         private object _markerId;
+
+        internal CancellationTokenSource _imageSourceCts;
 
         public Color TintColor
         {
