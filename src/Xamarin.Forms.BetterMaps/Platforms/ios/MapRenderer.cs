@@ -20,14 +20,15 @@ namespace Xamarin.Forms.BetterMaps.iOS
     [Preserve(AllMembers = true)]
     public class MapRenderer : ViewRenderer
     {
-        private static readonly TimeSpan UIImageCacheTime = TimeSpan.FromMinutes(2);
+        protected readonly TimeSpan ImageCacheTime = TimeSpan.FromMinutes(3);
+
         private static readonly Lazy<UIImage> UIImageEmpty = new Lazy<UIImage>(() => new UIImage());
         private static readonly UIColor Transparent = Color.Transparent.ToUIColor();
 
         private readonly Dictionary<IMKAnnotation, Pin> _pinLookup = new Dictionary<IMKAnnotation, Pin>();
         private readonly Dictionary<IMKOverlay, MapElement> _elementLookup = new Dictionary<IMKOverlay, MapElement>();
 
-        private readonly SemaphoreSlim _uiImageSemaphore = new SemaphoreSlim(1, 1);
+        private readonly SemaphoreSlim _imgCacheSemaphore = new SemaphoreSlim(1, 1);
 
         private CLLocationManager _locationManager;
         private bool _shouldUpdateRegion;
@@ -204,7 +205,7 @@ namespace Xamarin.Forms.BetterMaps.iOS
             pin._imageSourceCts?.Dispose();
             pin._imageSourceCts = null;
 
-            var imageTask = GetMarkerBitmapAsync(fAnnotation.ImageSource, fAnnotation.TintColor);
+            var imageTask = GetPinImageAsync(fAnnotation.ImageSource, fAnnotation.TintColor);
             if (imageTask != null)
             {
                 var cts = new CancellationTokenSource();
@@ -639,7 +640,7 @@ namespace Xamarin.Forms.BetterMaps.iOS
                             var tok = cts.Token;
                             pin._imageSourceCts = cts;
 
-                            var imageTask = GetMarkerBitmapAsync(annotation.ImageSource, annotation.TintColor);
+                            var imageTask = GetPinImageAsync(annotation.ImageSource, annotation.TintColor);
                             if (imageTask.IsCompletedSuccessfully)
                             {
                                 var image = imageTask.Result;
@@ -677,7 +678,7 @@ namespace Xamarin.Forms.BetterMaps.iOS
                 setImage();
         }
 
-        protected virtual async Task<UIImage> GetMarkerBitmapAsync(ImageSource imgSource, UIColor tint)
+        protected virtual async Task<UIImage> GetPinImageAsync(ImageSource imgSource, UIColor tint)
         {
             if (imgSource == null)
                 return default;
@@ -688,66 +689,82 @@ namespace Xamarin.Forms.BetterMaps.iOS
             {
                 var imgKey = imgSource.CacheId();
                 var cacheKey = !string.IsNullOrEmpty(imgKey)
-                    ? $"XFBM_UIImageTinted_{HashCode.Combine(imgKey, tint)}"
+                    ? $"XFBM_{nameof(GetPinImageAsync)}_{imgKey}_{tint.ToColor().ToHex()}"
                     : string.Empty;
 
-                if (FormsBetterMaps.Cache == null || !FormsBetterMaps.Cache.TryGetValue(cacheKey, out image))
+                var tintedImage = default(UIImage);
+                if (FormsBetterMaps.Cache?.TryGetValue(cacheKey, out tintedImage) != true)
                 {
-                    image = await GetUIImageAsync(imgSource).ConfigureAwait(false);
+                    image = await GetImageAsync(imgSource).ConfigureAwait(false);
 
-                    UIGraphics.BeginImageContextWithOptions(image.Size, false, image.CurrentScale);
-                    var context = UIGraphics.GetCurrentContext();
-                    tint.SetFill();
-                    context.TranslateCTM(0, image.Size.Height);
-                    context.ScaleCTM(1, -1);
-                    var rect = new CGRect(0, 0, image.Size.Width, image.Size.Height);
-                    context.ClipToMask(new CGRect(0, 0, image.Size.Width, image.Size.Height), image.CGImage);
-                    context.FillRect(rect);
-                    var tintedImage = UIGraphics.GetImageFromCurrentImageContext();
-                    UIGraphics.EndImageContext();
+                    await _imgCacheSemaphore.WaitAsync().ConfigureAwait(false);
 
-                    image = tintedImage;
+                    try
+                    {
+                        if (image != null && FormsBetterMaps.Cache?.TryGetValue(cacheKey, out tintedImage) != true)
+                        {
+                            UIGraphics.BeginImageContextWithOptions(image.Size, false, image.CurrentScale);
+                            var context = UIGraphics.GetCurrentContext();
+                            tint.SetFill();
+                            context.TranslateCTM(0, image.Size.Height);
+                            context.ScaleCTM(1, -1);
+                            var rect = new CGRect(0, 0, image.Size.Width, image.Size.Height);
+                            context.ClipToMask(new CGRect(0, 0, image.Size.Width, image.Size.Height), image.CGImage);
+                            context.FillRect(rect);
+                            tintedImage = UIGraphics.GetImageFromCurrentImageContext();
+                            UIGraphics.EndImageContext();
 
-                    if (!string.IsNullOrEmpty(cacheKey))
-                        FormsBetterMaps.Cache?.SetSliding(cacheKey, image, TimeSpan.FromMinutes(2));
+                            if (!string.IsNullOrEmpty(cacheKey))
+                                FormsBetterMaps.Cache?.SetSliding(cacheKey, tintedImage, ImageCacheTime);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine(ex);
+                    }
+                    finally
+                    {
+                        _imgCacheSemaphore.Release();
+                    }
                 }
+
+                image = tintedImage;
             }
 
-            return image ?? await GetUIImageAsync(imgSource).ConfigureAwait(false);
+            return image ?? await GetImageAsync(imgSource).ConfigureAwait(false);
         }
 
-        private async Task<UIImage> GetUIImageAsync(ImageSource imgSource)
+        protected virtual async Task<UIImage> GetImageAsync(ImageSource imgSource)
         {
-            await _uiImageSemaphore.WaitAsync().ConfigureAwait(false);
+            await _imgCacheSemaphore.WaitAsync().ConfigureAwait(false);
 
-            var uiImageTask = default(Task<UIImage>);
+            var imageTask = default(Task<UIImage>);
 
             try
             {
                 var imgKey = imgSource.CacheId();
                 var cacheKey = !string.IsNullOrEmpty(imgKey)
-                    ? $"XFBM_UIImageTask_{HashCode.Combine(imgKey)}"
+                    ? $"XFBM_{nameof(GetImageAsync)}_{imgKey}"
                     : string.Empty;
 
                 var fromCache =
                     !string.IsNullOrEmpty(cacheKey) &&
-                    FormsBetterMaps.Cache != null &&
-                    FormsBetterMaps.Cache.TryGetValue(cacheKey, out uiImageTask);
+                    FormsBetterMaps.Cache?.TryGetValue(cacheKey, out imageTask) == true;
 
-                uiImageTask ??= imgSource.LoadNativeAsync(default);
+                imageTask ??= imgSource.LoadNativeAsync(default);
                 if (!string.IsNullOrEmpty(cacheKey) && !fromCache)
-                    FormsBetterMaps.Cache?.SetSliding(cacheKey, uiImageTask, UIImageCacheTime);
+                    FormsBetterMaps.Cache?.SetSliding(cacheKey, imageTask, ImageCacheTime);
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine(ex);
             }
             finally
             {
-                _uiImageSemaphore.Release();
+                _imgCacheSemaphore.Release();
             }
 
-            return await (uiImageTask ?? Task.FromResult(default(UIImage))).ConfigureAwait(false);
+            return await (imageTask ?? Task.FromResult(default(UIImage))).ConfigureAwait(false);
         }
 
         protected Pin GetPinForAnnotation(IMKAnnotation annotation)
@@ -852,7 +869,7 @@ namespace Xamarin.Forms.BetterMaps.iOS
             };
 
         protected virtual MKPolylineRenderer GetViewForPolyline(MKPolyline mkPolyline)
-            => _elementLookup.TryGetValue(mkPolyline, out var e) && e is Polyline pl
+            => mkPolyline != null && _elementLookup.TryGetValue(mkPolyline, out var e) && e is Polyline pl
                 ? new MKPolylineRenderer(mkPolyline)
                 {
                     StrokeColor = pl.StrokeColor.ToUIColor(Color.Black),
@@ -861,7 +878,7 @@ namespace Xamarin.Forms.BetterMaps.iOS
                 : null;
 
         protected virtual MKPolygonRenderer GetViewForPolygon(MKPolygon mkPolygon)
-            => _elementLookup.TryGetValue(mkPolygon, out var e) && e is Polygon pg
+            => mkPolygon != null && _elementLookup.TryGetValue(mkPolygon, out var e) && e is Polygon pg
                 ? new MKPolygonRenderer(mkPolygon)
                 {
                     StrokeColor = pg.StrokeColor.ToUIColor(Color.Black),
@@ -871,7 +888,7 @@ namespace Xamarin.Forms.BetterMaps.iOS
                 : null;
 
         protected virtual MKCircleRenderer GetViewForCircle(MKCircle mkCircle)
-            => _elementLookup.TryGetValue(mkCircle, out var e) && e is Circle c
+            => mkCircle != null && _elementLookup.TryGetValue(mkCircle, out var e) && e is Circle c
                 ? new MKCircleRenderer(mkCircle)
                 {
                     StrokeColor = c.StrokeColor.ToUIColor(Color.Black),

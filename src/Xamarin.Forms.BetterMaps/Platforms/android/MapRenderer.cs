@@ -27,6 +27,7 @@ using ACircle = Android.Gms.Maps.Model.Circle;
 using APolygon = Android.Gms.Maps.Model.Polygon;
 using APolyline = Android.Gms.Maps.Model.Polyline;
 using Math = System.Math;
+using AndroidColor = Android.Graphics.Color;
 
 namespace Xamarin.Forms.BetterMaps.Android
 {
@@ -35,8 +36,10 @@ namespace Xamarin.Forms.BetterMaps.Android
     {
         internal static Bundle Bundle { get; set; }
 
-        private static readonly TimeSpan BitmapCacheTime = TimeSpan.FromMinutes(2);
+        protected readonly TimeSpan ImageCacheTime = TimeSpan.FromMinutes(3);
+
         private static readonly Lazy<Bitmap> BitmapEmpty = new Lazy<Bitmap>(() => Bitmap.CreateBitmap(1, 1, Bitmap.Config.Alpha8));
+        private static readonly AndroidColor Transparent = Color.Transparent.ToAndroid();
         private static readonly ConcurrentDictionary<string, MapStyleOptions> MapStyles = new ConcurrentDictionary<string, MapStyleOptions>();
 
         private readonly Dictionary<string, (Pin pin, Marker marker)> _markers = new Dictionary<string, (Pin, Marker)>();
@@ -44,7 +47,7 @@ namespace Xamarin.Forms.BetterMaps.Android
         private readonly Dictionary<string, (Polygon element, APolygon polygon)> _polygons = new Dictionary<string, (Polygon, APolygon)>();
         private readonly Dictionary<string, (Circle element, ACircle circle)> _circles = new Dictionary<string, (Circle, ACircle)>();
 
-        private readonly SemaphoreSlim _bitmapSemaphore = new SemaphoreSlim(1, 1);
+        private readonly SemaphoreSlim _imgCacheSemaphore = new SemaphoreSlim(1, 1);
 
         private static event EventHandler<EventArgs> MapViewCreated;
         private static event EventHandler<EventArgs> MapViewDestroyed;
@@ -267,14 +270,14 @@ namespace Xamarin.Forms.BetterMaps.Android
             pin._imageSourceCts?.Dispose();
             pin._imageSourceCts = null;
 
-            var bitmapTask = GetMarkerBitmapAsync(pin.ImageSource, pin.TintColor);
+            var imageTask = GetPinImageAsync(pin.ImageSource, pin.TintColor.ToAndroid());
 
-            if (bitmapTask.IsCompletedSuccessfully)
+            if (imageTask.IsCompletedSuccessfully)
             {
-                var bitmap = bitmapTask.Result;
-                opts.SetIcon(bitmap != null
-                    ? BitmapDescriptorFactory.FromBitmap(bitmap)
-                    : BitmapDescriptorFactory.DefaultMarker(((float)pin.TintColor.Hue * 360f) % 360f));
+                var image = imageTask.Result;
+                opts.SetIcon(image != null
+                    ? BitmapDescriptorFactory.FromBitmap(image)
+                    : BitmapDescriptorFactory.DefaultMarker(pin.TintColor.ToAndroidHue()));
             }
             else
             {
@@ -284,7 +287,7 @@ namespace Xamarin.Forms.BetterMaps.Android
 
                 opts.SetIcon(BitmapDescriptorFactory.FromBitmap(BitmapEmpty.Value));
 
-                bitmapTask.ContinueWith(t =>
+                imageTask.ContinueWith(t =>
                 {
                     if (t.IsCompletedSuccessfully && !tok.IsCancellationRequested)
                         ApplyBitmapToMarker(t.Result, pin, tok);
@@ -485,13 +488,13 @@ namespace Xamarin.Forms.BetterMaps.Android
                 pin._imageSourceCts?.Dispose();
                 pin._imageSourceCts = null;
 
-                var bitmapTask = GetMarkerBitmapAsync(pin.ImageSource, pin.TintColor);
-                if (bitmapTask.IsCompletedSuccessfully)
+                var imageTask = GetPinImageAsync(pin.ImageSource, pin.TintColor.ToAndroid());
+                if (imageTask.IsCompletedSuccessfully)
                 {
-                    var bitmap = bitmapTask.Result;
-                    marker.SetIcon(bitmap != default
-                        ? BitmapDescriptorFactory.FromBitmap(bitmap)
-                        : BitmapDescriptorFactory.DefaultMarker(((float)pin.TintColor.Hue * 360f) % 360f));
+                    var image = imageTask.Result;
+                    marker.SetIcon(image != default
+                        ? BitmapDescriptorFactory.FromBitmap(image)
+                        : BitmapDescriptorFactory.DefaultMarker(pin.TintColor.ToAndroidHue()));
                 }
                 else
                 {
@@ -499,7 +502,7 @@ namespace Xamarin.Forms.BetterMaps.Android
                     var tok = cts.Token;
                     pin._imageSourceCts = cts;
 
-                    bitmapTask.ContinueWith(t =>
+                    imageTask.ContinueWith(t =>
                     {
                         if (t.IsCompletedSuccessfully && !tok.IsCancellationRequested)
                             ApplyBitmapToMarker(t.Result, pin, tok);
@@ -508,7 +511,7 @@ namespace Xamarin.Forms.BetterMaps.Android
             }
         }
 
-        private void ApplyBitmapToMarker(Bitmap bitmap, Pin pin, CancellationToken ct)
+        private void ApplyBitmapToMarker(Bitmap image, Pin pin, CancellationToken ct)
         {
             if (ct.IsCancellationRequested)
                 return;
@@ -518,14 +521,10 @@ namespace Xamarin.Forms.BetterMaps.Android
                 if (ct.IsCancellationRequested)
                     return;
 
-                var marker = GetMarkerForPin(pin);
-
-                if (marker == null)
-                    return;
-
-                marker.SetIcon(bitmap != default
-                    ? BitmapDescriptorFactory.FromBitmap(bitmap)
-                    : BitmapDescriptorFactory.DefaultMarker(((float)pin.TintColor.Hue * 360f) % 360f));
+                if (GetMarkerForPin(pin) is Marker marker)
+                    marker.SetIcon(image != default
+                        ? BitmapDescriptorFactory.FromBitmap(image)
+                        : BitmapDescriptorFactory.DefaultMarker(pin.TintColor.ToAndroidHue()));
             }
 
             if (Device.IsInvokeRequired)
@@ -534,64 +533,78 @@ namespace Xamarin.Forms.BetterMaps.Android
                 setBitmap();
         }
 
-        protected virtual async Task<Bitmap> GetMarkerBitmapAsync(ImageSource imgSource, Color tint)
+        protected virtual async Task<Bitmap> GetPinImageAsync(ImageSource imgSource, AndroidColor tint)
         {
             if (imgSource == null)
                 return default;
 
-            var bitmap = default(Bitmap);
+            var image = default(Bitmap);
 
-            if (tint != Color.Transparent)
+            if (tint != Transparent)
             {
                 var imgKey = imgSource.CacheId();
                 var cacheKey = !string.IsNullOrEmpty(imgKey)
-                    ? $"XFBM_BitmapTinted_{HashCode.Combine(imgKey, tint)}"
+                    ? $"XFBM_{nameof(GetPinImageAsync)}_{imgKey}_{tint.ToColor().ToHex()}"
                     : string.Empty;
 
-                var filteredBitmap = default(Bitmap);
-
-                if (FormsBetterMaps.Cache == null || !FormsBetterMaps.Cache.TryGetValue(cacheKey, out filteredBitmap))
+                var tintedImage = default(Bitmap);
+                if (FormsBetterMaps.Cache?.TryGetValue(cacheKey, out tintedImage) != true)
                 {
-                    bitmap = await GetBitmapAsync(imgSource).ConfigureAwait(false);
+                    image = await GetImageAsync(imgSource).ConfigureAwait(false);
 
-                    filteredBitmap = bitmap.Copy(bitmap.GetConfig(), true);
-                    var paint = new Paint();
-                    var filter = new PorterDuffColorFilter(tint.ToAndroid(), PorterDuff.Mode.SrcIn);
-                    paint.SetColorFilter(filter);
-                    var canvas = new Canvas(filteredBitmap);
-                    canvas.DrawBitmap(filteredBitmap, 0, 0, paint);
+                    await _imgCacheSemaphore.WaitAsync().ConfigureAwait(false);
 
-                    if (!string.IsNullOrEmpty(cacheKey))
-                        FormsBetterMaps.Cache?.SetSliding(cacheKey, filteredBitmap, BitmapCacheTime);
+                    try
+                    {
+                        if (image != null && FormsBetterMaps.Cache?.TryGetValue(cacheKey, out tintedImage) != true)
+                        {
+                            tintedImage = image.Copy(image.GetConfig(), true);
+                            var paint = new Paint();
+                            var filter = new PorterDuffColorFilter(tint, PorterDuff.Mode.SrcIn);
+                            paint.SetColorFilter(filter);
+                            var canvas = new Canvas(tintedImage);
+                            canvas.DrawBitmap(tintedImage, 0, 0, paint);
+
+                            if (!string.IsNullOrEmpty(cacheKey))
+                                FormsBetterMaps.Cache?.SetSliding(cacheKey, tintedImage, ImageCacheTime);
+                        }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        System.Diagnostics.Debug.WriteLine(ex);
+                    }
+                    finally
+                    {
+                        _imgCacheSemaphore.Release();
+                    }
                 }
 
-                bitmap = filteredBitmap;
+                image = tintedImage;
             }
 
-            return bitmap ?? await GetBitmapAsync(imgSource).ConfigureAwait(false);
+            return image ?? await GetImageAsync(imgSource).ConfigureAwait(false);
         }
 
-        private async Task<Bitmap> GetBitmapAsync(ImageSource imgSource)
+        protected virtual async Task<Bitmap> GetImageAsync(ImageSource imgSource)
         {
-            await _bitmapSemaphore.WaitAsync().ConfigureAwait(false);
+            await _imgCacheSemaphore.WaitAsync().ConfigureAwait(false);
 
-            var bitmapTask = default(Task<Bitmap>);
+            var imageTask = default(Task<Bitmap>);
 
             try
             {
                 var imgKey = imgSource.CacheId();
                 var cacheKey = !string.IsNullOrEmpty(imgKey)
-                    ? $"XFBM_BitmapTask_{HashCode.Combine(imgKey)}"
+                    ? $"XFBM_{nameof(GetImageAsync)}_{imgKey}"
                     : string.Empty;
 
                 var fromCache =
                     !string.IsNullOrEmpty(cacheKey) &&
-                    FormsBetterMaps.Cache != null &&
-                    FormsBetterMaps.Cache.TryGetValue(cacheKey, out bitmapTask);
+                    FormsBetterMaps.Cache?.TryGetValue(cacheKey, out imageTask) == true;
 
-                bitmapTask ??= imgSource.LoadNativeAsync(Context, default);
+                imageTask ??= imgSource.LoadNativeAsync(Context, default);
                 if (!string.IsNullOrEmpty(cacheKey) && !fromCache)
-                    FormsBetterMaps.Cache?.SetSliding(cacheKey, bitmapTask, BitmapCacheTime);
+                    FormsBetterMaps.Cache?.SetSliding(cacheKey, imageTask, ImageCacheTime);
             }
             catch (System.Exception ex)
             {
@@ -599,17 +612,17 @@ namespace Xamarin.Forms.BetterMaps.Android
             }
             finally
             {
-                _bitmapSemaphore.Release();
+                _imgCacheSemaphore.Release();
             }
 
-            return await (bitmapTask ?? Task.FromResult(default(Bitmap))).ConfigureAwait(false);
+            return await (imageTask ?? Task.FromResult(default(Bitmap))).ConfigureAwait(false);
         }
 
         protected Marker GetMarkerForPin(Pin pin)
             => pin?.MarkerId != null && _markers.TryGetValue((string)pin.MarkerId, out var i) ? i.marker : null;
 
         protected Pin GetPinForMarker(Marker marker)
-            => _markers.TryGetValue(marker.Id, out var i) ? i.pin : null;
+            => marker?.Id != null && _markers.TryGetValue(marker.Id, out var i) ? i.pin : null;
 
         private void OnMarkerClick(object sender, GoogleMap.MarkerClickEventArgs e)
         {
@@ -827,7 +840,7 @@ namespace Xamarin.Forms.BetterMaps.Android
             => polyline?.MapElementId != null && _polylines.TryGetValue((string)polyline.MapElementId, out var i) ? i.polyline : null;
 
         protected Polyline GetFormsPolyline(APolyline polyline)
-            => _polylines.TryGetValue(polyline.Id, out var i) ? i.element : null;
+            => polyline?.Id != null && _polylines.TryGetValue(polyline.Id, out var i) ? i.element : null;
 
         private void PolylineOnPropertyChanged(Polyline formsPolyline, PropertyChangedEventArgs e)
         {
@@ -898,7 +911,7 @@ namespace Xamarin.Forms.BetterMaps.Android
             => polygon?.MapElementId != null && _polygons.TryGetValue((string)polygon.MapElementId, out var i) ? i.polygon : null;
 
         protected Polygon GetFormsPolygon(APolygon polygon)
-            => _polygons.TryGetValue(polygon.Id, out var i) ? i.element : null;
+            => polygon?.Id != null && _polygons.TryGetValue(polygon.Id, out var i) ? i.element : null;
 
         private void PolygonOnPropertyChanged(Polygon polygon, PropertyChangedEventArgs e)
         {
@@ -961,7 +974,7 @@ namespace Xamarin.Forms.BetterMaps.Android
             => circle?.MapElementId != null && _circles.TryGetValue((string)circle.MapElementId, out var i) ? i.circle : null;
 
         protected Circle GetFormsCircle(ACircle circle)
-            => _circles.TryGetValue(circle.Id, out var i) ? i.element : null;
+            => circle?.Id != null && _circles.TryGetValue(circle.Id, out var i) ? i.element : null;
 
         private void CircleOnPropertyChanged(Circle formsCircle, PropertyChangedEventArgs e)
         {
