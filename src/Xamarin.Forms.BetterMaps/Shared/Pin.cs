@@ -27,7 +27,7 @@ namespace Xamarin.Forms.BetterMaps
         public static readonly BindableProperty ZIndexProperty =
             BindableProperty.Create(nameof(ZIndex), typeof(int), typeof(Pin));
 
-        private object _markerId;
+        internal object _markerId;
 
         internal CancellationTokenSource _imageSourceCts;
 
@@ -71,13 +71,6 @@ namespace Xamarin.Forms.BetterMaps
         {
             get => (int)GetValue(ZIndexProperty);
             set => SetValue(ZIndexProperty, value);
-        }
-
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        public object MarkerId
-        {
-            get => _markerId;
-            set => _markerId = value;
         }
 
         public override bool Equals(object obj)
