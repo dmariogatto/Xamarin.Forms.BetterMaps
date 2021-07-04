@@ -27,10 +27,6 @@ namespace Xamarin.Forms.BetterMaps
         public static readonly BindableProperty ZIndexProperty =
             BindableProperty.Create(nameof(ZIndex), typeof(int), typeof(Pin));
 
-        internal object _markerId;
-
-        internal CancellationTokenSource _imageSourceCts;
-
         public Color TintColor
         {
             get => (Color)GetValue(TintColorProperty);
@@ -73,6 +69,12 @@ namespace Xamarin.Forms.BetterMaps
             set => SetValue(ZIndexProperty, value);
         }
 
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public object MarkerId { get; set; }
+
+        [EditorBrowsable(EditorBrowsableState.Never)]
+        public CancellationTokenSource ImageSourceCts { get; set; }
+
         public override bool Equals(object obj)
         {
             if (ReferenceEquals(null, obj))
@@ -88,14 +90,10 @@ namespace Xamarin.Forms.BetterMaps
             => HashCode.Combine(TintColor, Label, Address, Position, ZIndex);
 
         public static bool operator ==(Pin left, Pin right)
-        {
-            return Equals(left, right);
-        }
+            => Equals(left, right);
 
         public static bool operator !=(Pin left, Pin right)
-        {
-            return !Equals(left, right);
-        }
+            => !Equals(left, right);
 
         private bool Equals(Pin other) => other is Pin pin &&
             TintColor == pin.TintColor &&

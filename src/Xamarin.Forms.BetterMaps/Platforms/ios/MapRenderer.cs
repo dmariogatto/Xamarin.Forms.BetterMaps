@@ -201,16 +201,16 @@ namespace Xamarin.Forms.BetterMaps.iOS
             var fAnnotation = (FormsMKPointAnnotation)annotation;
             var pin = fAnnotation.Pin;
 
-            pin._imageSourceCts?.Cancel();
-            pin._imageSourceCts?.Dispose();
-            pin._imageSourceCts = null;
+            pin.ImageSourceCts?.Cancel();
+            pin.ImageSourceCts?.Dispose();
+            pin.ImageSourceCts = null;
 
             var imageTask = GetPinImageAsync(fAnnotation.ImageSource, fAnnotation.TintColor);
             if (imageTask != null)
             {
                 var cts = new CancellationTokenSource();
                 var tok = cts.Token;
-                pin._imageSourceCts = cts;
+                pin.ImageSourceCts = cts;
 
                 mapPin = mapView.DequeueReusableAnnotation(customImgAnnotationId);
 
@@ -456,7 +456,7 @@ namespace Xamarin.Forms.BetterMaps.iOS
                 foreach (var a in MapNative.SelectedAnnotations)
                     MapNative.DeselectAnnotation(a, false);
             }
-            else if (pin._markerId is IMKAnnotation annotation)
+            else if (pin.MarkerId is IMKAnnotation annotation)
             {
                 MapNative.SelectAnnotation(annotation, false);
             }
@@ -521,7 +521,7 @@ namespace Xamarin.Forms.BetterMaps.iOS
         private void PinCollectionChanged(NotifyCollectionChangedEventArgs e)
         {
             var itemsToAdd = e.NewItems?.Cast<Pin>()?.ToList() ?? new List<Pin>(0);
-            var itemsToRemove = e.OldItems?.Cast<Pin>()?.Where(p => p._markerId != null)?.ToList() ?? new List<Pin>(0);
+            var itemsToRemove = e.OldItems?.Cast<Pin>()?.Where(p => p.MarkerId != null)?.ToList() ?? new List<Pin>(0);
 
             switch (e.Action)
             {
@@ -552,12 +552,13 @@ namespace Xamarin.Forms.BetterMaps.iOS
             {
                 p.PropertyChanged -= PinOnPropertyChanged;
 
-                var annotation = (IMKAnnotation)p._markerId;
+                var annotation = (IMKAnnotation)p.MarkerId;
                 _pinLookup.Remove(annotation);
-                p._markerId = null;
-                p._imageSourceCts?.Cancel();
-                p._imageSourceCts?.Dispose();
-                p._imageSourceCts = null;
+                p.MarkerId = null;
+
+                p.ImageSourceCts?.Cancel();
+                p.ImageSourceCts?.Dispose();
+                p.ImageSourceCts = null;
 
                 return annotation;
             }).ToArray();
@@ -581,7 +582,7 @@ namespace Xamarin.Forms.BetterMaps.iOS
             {
                 p.PropertyChanged += PinOnPropertyChanged;
                 var annotation = CreateAnnotation(p);
-                p._markerId = annotation;
+                p.MarkerId = annotation;
 
                 if (ReferenceEquals(p, MapModel.SelectedPin))
                     selectedAnnotation = annotation;
@@ -600,7 +601,7 @@ namespace Xamarin.Forms.BetterMaps.iOS
         private void PinOnPropertyChanged(object sender, PropertyChangedEventArgs e)
         {
             if (sender is Pin pin &&
-                pin._markerId is FormsMKPointAnnotation annotation &&
+                pin.MarkerId is FormsMKPointAnnotation annotation &&
                 ReferenceEquals(pin, annotation.Pin))
             {
                 if (e.PropertyName == Pin.LabelProperty.PropertyName)
@@ -629,9 +630,9 @@ namespace Xamarin.Forms.BetterMaps.iOS
                 else if (e.PropertyName == Pin.ImageSourceProperty.PropertyName ||
                          e.PropertyName == Pin.TintColorProperty.PropertyName)
                 {
-                    pin._imageSourceCts?.Cancel();
-                    pin._imageSourceCts?.Dispose();
-                    pin._imageSourceCts = null;
+                    pin.ImageSourceCts?.Cancel();
+                    pin.ImageSourceCts?.Dispose();
+                    pin.ImageSourceCts = null;
 
                     switch (MapNative.ViewForAnnotation(annotation))
                     {
@@ -641,7 +642,7 @@ namespace Xamarin.Forms.BetterMaps.iOS
                         case MKAnnotationView view:
                             var cts = new CancellationTokenSource();
                             var tok = cts.Token;
-                            pin._imageSourceCts = cts;
+                            pin.ImageSourceCts = cts;
 
                             var imageTask = GetPinImageAsync(annotation.ImageSource, annotation.TintColor);
                             if (imageTask.IsCompletedSuccessfully)
@@ -910,10 +911,7 @@ namespace Xamarin.Forms.BetterMaps.iOS
             foreach (var kv in _pinLookup)
             {
                 kv.Value.PropertyChanged -= PinOnPropertyChanged;
-                kv.Value._markerId = null;
-                kv.Value._imageSourceCts?.Cancel();
-                kv.Value._imageSourceCts?.Dispose();
-                kv.Value._imageSourceCts = null;
+                kv.Value.MarkerId = null;
             }
 
             foreach (var kv in _elementLookup)

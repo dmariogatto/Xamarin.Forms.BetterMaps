@@ -266,9 +266,9 @@ namespace Xamarin.Forms.BetterMaps.Android
             opts.Anchor((float)pin.Anchor.X, (float)pin.Anchor.Y);
             opts.InvokeZIndex(pin.ZIndex);
 
-            pin._imageSourceCts?.Cancel();
-            pin._imageSourceCts?.Dispose();
-            pin._imageSourceCts = null;
+            pin.ImageSourceCts?.Cancel();
+            pin.ImageSourceCts?.Dispose();
+            pin.ImageSourceCts = null;
 
             var imageTask = GetPinImageAsync(pin.ImageSource, pin.TintColor.ToAndroid());
 
@@ -283,7 +283,7 @@ namespace Xamarin.Forms.BetterMaps.Android
             {
                 var cts = new CancellationTokenSource();
                 var tok = cts.Token;
-                pin._imageSourceCts = cts;
+                pin.ImageSourceCts = cts;
 
                 opts.SetIcon(BitmapDescriptorFactory.FromBitmap(BitmapEmpty.Value));
 
@@ -447,7 +447,7 @@ namespace Xamarin.Forms.BetterMaps.Android
                 p.PropertyChanged += PinOnPropertyChanged;
 
                 // associate pin with marker for later lookup in event handlers
-                p._markerId = marker.Id;
+                p.MarkerId = marker.Id;
 
                 if (ReferenceEquals(p, MapModel.SelectedPin))
                     marker.ShowInfoWindow();
@@ -484,9 +484,9 @@ namespace Xamarin.Forms.BetterMaps.Android
             else if (e.PropertyName == Pin.ImageSourceProperty.PropertyName ||
                      e.PropertyName == Pin.TintColorProperty.PropertyName)
             {
-                pin._imageSourceCts?.Cancel();
-                pin._imageSourceCts?.Dispose();
-                pin._imageSourceCts = null;
+                pin.ImageSourceCts?.Cancel();
+                pin.ImageSourceCts?.Dispose();
+                pin.ImageSourceCts = null;
 
                 var imageTask = GetPinImageAsync(pin.ImageSource, pin.TintColor.ToAndroid());
                 if (imageTask.IsCompletedSuccessfully)
@@ -500,7 +500,7 @@ namespace Xamarin.Forms.BetterMaps.Android
                 {
                     var cts = new CancellationTokenSource();
                     var tok = cts.Token;
-                    pin._imageSourceCts = cts;
+                    pin.ImageSourceCts = cts;
 
                     imageTask.ContinueWith(t =>
                     {
@@ -619,7 +619,7 @@ namespace Xamarin.Forms.BetterMaps.Android
         }
 
         protected Marker GetMarkerForPin(Pin pin)
-            => pin?._markerId != null && _markers.TryGetValue((string)pin._markerId, out var i) ? i.marker : null;
+            => pin?.MarkerId != null && _markers.TryGetValue((string)pin.MarkerId, out var i) ? i.marker : null;
 
         protected Pin GetPinForMarker(Marker marker)
             => marker?.Id != null && _markers.TryGetValue(marker.Id, out var i) ? i.pin : null;
@@ -684,7 +684,7 @@ namespace Xamarin.Forms.BetterMaps.Android
         private void PinCollectionChanged(NotifyCollectionChangedEventArgs e)
         {
             var itemsToAdd = e.NewItems?.Cast<Pin>()?.ToList() ?? new List<Pin>(0);
-            var itemsToRemove = e.OldItems?.Cast<Pin>()?.Where(p => p._markerId != null)?.ToList() ?? new List<Pin>(0);
+            var itemsToRemove = e.OldItems?.Cast<Pin>()?.Where(p => p.MarkerId != null)?.ToList() ?? new List<Pin>(0);
 
             switch (e.Action)
             {
@@ -716,11 +716,6 @@ namespace Xamarin.Forms.BetterMaps.Android
             {
                 p.PropertyChanged -= PinOnPropertyChanged;
                 var marker = GetMarkerForPin(p);
-
-                p._markerId = null;
-                p._imageSourceCts?.Cancel();
-                p._imageSourceCts?.Dispose();
-                p._imageSourceCts = null;
 
                 if (marker == null)
                     continue;
@@ -1041,10 +1036,7 @@ namespace Xamarin.Forms.BetterMaps.Android
             foreach (var kv in _markers)
             {
                 kv.Value.pin.PropertyChanged -= PinOnPropertyChanged;
-                kv.Value.pin._markerId = null;
-                kv.Value.pin._imageSourceCts?.Cancel();
-                kv.Value.pin._imageSourceCts?.Dispose();
-                kv.Value.pin._imageSourceCts = null;
+                kv.Value.pin.MarkerId = null;
                 kv.Value.marker.Remove();
             }
 
