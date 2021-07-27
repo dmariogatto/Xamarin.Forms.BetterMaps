@@ -34,7 +34,7 @@ __New Map Properties/Events__
 | Event                    | Description                                                              |
 |--------------------------|--------------------------------------------------------------------------|
 | `SelectedPinChanged`     | Fired when selected pin is changed                                       |
-| `MarkerClicked`          | Fired when user taps on a pin                                            |
+| `PinClicked`             | Fired when user taps on a pin                                            |
 | `InfoWindowClicked`      | Fired when user taps the info window (visible when pin is selected)      |
 | `InfoWindowLongClicked`  | Fired when user long taps the info window (visible when pin is selected) |
 

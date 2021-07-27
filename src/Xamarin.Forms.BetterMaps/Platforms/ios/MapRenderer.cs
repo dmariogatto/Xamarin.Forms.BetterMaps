@@ -293,7 +293,7 @@ namespace Xamarin.Forms.BetterMaps.iOS
 
                 // SendMarkerClick() returns the value of PinClickedEventArgs.HideInfoWindow
                 // Hide the info window by deselecting the annotation
-                var deselect = MapModel.SendMarkerClick(pin);
+                var deselect = MapModel.SendPinClick(pin);
                 if (deselect) MapNative.DeselectAnnotation(annotation, false);
             }
         }
@@ -456,7 +456,7 @@ namespace Xamarin.Forms.BetterMaps.iOS
                 foreach (var a in MapNative.SelectedAnnotations)
                     MapNative.DeselectAnnotation(a, false);
             }
-            else if (pin.MarkerId is IMKAnnotation annotation)
+            else if (pin.NativeId is IMKAnnotation annotation)
             {
                 MapNative.SelectAnnotation(annotation, false);
             }
@@ -521,7 +521,7 @@ namespace Xamarin.Forms.BetterMaps.iOS
         private void PinCollectionChanged(NotifyCollectionChangedEventArgs e)
         {
             var itemsToAdd = e.NewItems?.Cast<Pin>()?.ToList() ?? new List<Pin>(0);
-            var itemsToRemove = e.OldItems?.Cast<Pin>()?.Where(p => p.MarkerId != null)?.ToList() ?? new List<Pin>(0);
+            var itemsToRemove = e.OldItems?.Cast<Pin>()?.Where(p => p.NativeId != null)?.ToList() ?? new List<Pin>(0);
 
             switch (e.Action)
             {
@@ -552,9 +552,9 @@ namespace Xamarin.Forms.BetterMaps.iOS
             {
                 p.PropertyChanged -= PinOnPropertyChanged;
 
-                var annotation = (IMKAnnotation)p.MarkerId;
+                var annotation = (IMKAnnotation)p.NativeId;
                 _pinLookup.Remove(annotation);
-                p.MarkerId = null;
+                p.NativeId = null;
 
                 p.ImageSourceCts?.Cancel();
                 p.ImageSourceCts?.Dispose();
@@ -582,7 +582,7 @@ namespace Xamarin.Forms.BetterMaps.iOS
             {
                 p.PropertyChanged += PinOnPropertyChanged;
                 var annotation = CreateAnnotation(p);
-                p.MarkerId = annotation;
+                p.NativeId = annotation;
 
                 if (ReferenceEquals(p, MapModel.SelectedPin))
                     selectedAnnotation = annotation;
@@ -601,7 +601,7 @@ namespace Xamarin.Forms.BetterMaps.iOS
         private void PinOnPropertyChanged(object sender, PropertyChangedEventArgs e)
         {
             if (sender is Pin pin &&
-                pin.MarkerId is FormsMKPointAnnotation annotation &&
+                pin.NativeId is FormsMKPointAnnotation annotation &&
                 ReferenceEquals(pin, annotation.Pin))
             {
                 if (e.PropertyName == Pin.LabelProperty.PropertyName)
@@ -911,7 +911,7 @@ namespace Xamarin.Forms.BetterMaps.iOS
             foreach (var kv in _pinLookup)
             {
                 kv.Value.PropertyChanged -= PinOnPropertyChanged;
-                kv.Value.MarkerId = null;
+                kv.Value.NativeId = null;
             }
 
             foreach (var kv in _elementLookup)

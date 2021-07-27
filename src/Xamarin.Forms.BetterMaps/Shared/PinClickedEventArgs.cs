@@ -4,12 +4,12 @@ namespace Xamarin.Forms.BetterMaps
 {
     public class PinClickedEventArgs : EventArgs
     {
-        public Pin Marker { get; }
+        public Pin Pin { get; }
         public bool HideInfoWindow { get; set; }
 
-        public PinClickedEventArgs(Pin marker)
+        public PinClickedEventArgs(Pin pin)
         {
-            Marker = marker;
+            Pin = pin;
             HideInfoWindow = false;
         }
     }

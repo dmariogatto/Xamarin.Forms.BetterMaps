@@ -29,7 +29,8 @@ namespace Xamarin.Forms.BetterMaps
             BindableProperty.Create(nameof(ShowCompass), typeof(bool), typeof(Map), true);
 
         public static readonly BindableProperty SelectedPinProperty =
-            BindableProperty.Create(nameof(SelectedPin), typeof(Pin), typeof(Map), default(Pin));
+            BindableProperty.Create(nameof(SelectedPin), typeof(Pin), typeof(Map), default(Pin),
+                propertyChanged: (b, o, n) => OnSelectedPinChanged((Map)b, o as Pin, n as Pin));
 
         public static readonly BindableProperty TrafficEnabledProperty =
             BindableProperty.Create(nameof(TrafficEnabled), typeof(bool), typeof(Map), default(bool));
@@ -151,8 +152,8 @@ namespace Xamarin.Forms.BetterMaps
         public ObservableCollection<MapElement> MapElements => _mapElements;
 
         public event EventHandler<MapClickedEventArgs> MapClicked;
-        public event EventHandler<EventArgs> SelectedPinChanged;
-        public event EventHandler<PinClickedEventArgs> MarkerClicked;
+        public event EventHandler<MapSelectedPinChangedArgs> SelectedPinChanged;
+        public event EventHandler<PinClickedEventArgs> PinClicked;
         public event EventHandler<PinClickedEventArgs> InfoWindowClicked;
         public event EventHandler<PinClickedEventArgs> InfoWindowLongClicked;
 
@@ -160,28 +161,25 @@ namespace Xamarin.Forms.BetterMaps
         public void SendMapClicked(Position position) => MapClicked?.Invoke(this, new MapClickedEventArgs(position));
 
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public void SendSelectedPinChanged() => SelectedPinChanged?.Invoke(this, new EventArgs());
-
-        [EditorBrowsable(EditorBrowsableState.Never)]
-        public bool SendMarkerClick(Pin marker)
+        public bool SendPinClick(Pin pin)
         {
-            var args = new PinClickedEventArgs(marker);
-            MarkerClicked?.Invoke(this, args);
+            var args = new PinClickedEventArgs(pin);
+            PinClicked?.Invoke(this, args);
             return args.HideInfoWindow;
         }
 
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public bool SendInfoWindowClick(Pin marker)
+        public bool SendInfoWindowClick(Pin pin)
         {
-            var args = new PinClickedEventArgs(marker);
+            var args = new PinClickedEventArgs(pin);
             InfoWindowClicked?.Invoke(this, args);
             return args.HideInfoWindow;
         }
 
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public bool SendInfoWindowLongClick(Pin marker)
+        public bool SendInfoWindowLongClick(Pin pin)
         {
-            var args = new PinClickedEventArgs(marker);
+            var args = new PinClickedEventArgs(pin);
             InfoWindowLongClicked?.Invoke(this, args);
             return args.HideInfoWindow;
         }
@@ -301,5 +299,8 @@ namespace Xamarin.Forms.BetterMaps
 
             return pin;
         }
+
+        private static void OnSelectedPinChanged(Map map, Pin oldValue, Pin newValue)
+            => map.SelectedPinChanged?.Invoke(map, new MapSelectedPinChangedArgs(oldValue, newValue));
     }
 }

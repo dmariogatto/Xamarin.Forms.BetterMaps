@@ -70,7 +70,7 @@ namespace Xamarin.Forms.BetterMaps
         }
 
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public object MarkerId { get; set; }
+        public object NativeId { get; set; }
 
         [EditorBrowsable(EditorBrowsableState.Never)]
         public CancellationTokenSource ImageSourceCts { get; set; }

@@ -199,7 +199,7 @@ namespace Xamarin.Forms.BetterMaps.Android
             else if (e.PropertyName == Map.ShowCompassProperty.PropertyName)
                 MapNative.UiSettings.CompassEnabled = MapModel.ShowCompass;
             else if (e.PropertyName == Map.SelectedPinProperty.PropertyName)
-                UpdateSelectedPin();
+                UpdateSelectedMarker();
             else if (e.PropertyName == Map.HasScrollEnabledProperty.PropertyName)
                 MapNative.UiSettings.ScrollGesturesEnabled = MapModel.HasScrollEnabled;
             else if (e.PropertyName == Map.HasZoomEnabledProperty.PropertyName)
@@ -253,7 +253,7 @@ namespace Xamarin.Forms.BetterMaps.Android
             OnPinCollectionChanged(Element.Pins, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
             OnMapElementCollectionChanged(Element.MapElements, new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
 
-            UpdateSelectedPin();
+            UpdateSelectedMarker();
         }
 
         protected virtual MarkerOptions CreateMarker(Pin pin)
@@ -300,6 +300,7 @@ namespace Xamarin.Forms.BetterMaps.Android
         #region Map
         private void OnMapClick(object sender, GoogleMap.MapClickEventArgs e)
         {
+            MapModel.SelectedPin = null;
             MapModel.SendMapClicked(new Position(e.Point.Latitude, e.Point.Longitude));
         }
 
@@ -414,7 +415,7 @@ namespace Xamarin.Forms.BetterMaps.Android
             }
         }
 
-        private void UpdateSelectedPin()
+        private void UpdateSelectedMarker()
         {
             var pin = MapModel.SelectedPin;
 
@@ -447,7 +448,7 @@ namespace Xamarin.Forms.BetterMaps.Android
                 p.PropertyChanged += PinOnPropertyChanged;
 
                 // associate pin with marker for later lookup in event handlers
-                p.MarkerId = marker.Id;
+                p.NativeId = marker.Id;
 
                 if (ReferenceEquals(p, MapModel.SelectedPin))
                     marker.ShowInfoWindow();
@@ -619,7 +620,7 @@ namespace Xamarin.Forms.BetterMaps.Android
         }
 
         protected Marker GetMarkerForPin(Pin pin)
-            => pin?.MarkerId != null && _markers.TryGetValue((string)pin.MarkerId, out var i) ? i.marker : null;
+            => pin?.NativeId != null && _markers.TryGetValue((string)pin.NativeId, out var i) ? i.marker : null;
 
         protected Pin GetPinForMarker(Marker marker)
             => marker?.Id != null && _markers.TryGetValue(marker.Id, out var i) ? i.pin : null;
@@ -636,17 +637,12 @@ namespace Xamarin.Forms.BetterMaps.Android
             if (pin == null) return;
 
             // Setting e.Handled = true will prevent the info window from being presented
-            var handled = MapModel.SendMarkerClick(pin);
+            var handled = MapModel.SendPinClick(pin);
             e.Handled = handled;
         }
 
         private void OnInfoWindowClose(object sender, GoogleMap.InfoWindowCloseEventArgs e)
         {
-            var pin = GetPinForMarker(e.Marker);
-            if (pin != null && ReferenceEquals(pin, MapModel.SelectedPin))
-            {
-                MapModel.SelectedPin = null;
-            }
         }
 
         private void OnInfoWindowClick(object sender, GoogleMap.InfoWindowClickEventArgs e)
@@ -684,7 +680,7 @@ namespace Xamarin.Forms.BetterMaps.Android
         private void PinCollectionChanged(NotifyCollectionChangedEventArgs e)
         {
             var itemsToAdd = e.NewItems?.Cast<Pin>()?.ToList() ?? new List<Pin>(0);
-            var itemsToRemove = e.OldItems?.Cast<Pin>()?.Where(p => p.MarkerId != null)?.ToList() ?? new List<Pin>(0);
+            var itemsToRemove = e.OldItems?.Cast<Pin>()?.Where(p => p.NativeId != null)?.ToList() ?? new List<Pin>(0);
 
             switch (e.Action)
             {
@@ -1036,7 +1032,7 @@ namespace Xamarin.Forms.BetterMaps.Android
             foreach (var kv in _markers)
             {
                 kv.Value.pin.PropertyChanged -= PinOnPropertyChanged;
-                kv.Value.pin.MarkerId = null;
+                kv.Value.pin.NativeId = null;
                 kv.Value.marker.Remove();
             }
 
