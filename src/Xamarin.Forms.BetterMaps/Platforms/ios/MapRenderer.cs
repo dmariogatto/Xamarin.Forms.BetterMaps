@@ -278,7 +278,14 @@ namespace Xamarin.Forms.BetterMaps.iOS
             var calloutLongRecognizer = new UILongPressGestureRecognizer(g =>
             {
                 if (g.State == UIGestureRecognizerState.Began)
+                {
                     OnCalloutAltClicked(annotation);
+
+                    // workaround (long press not registered until map movement)
+                    // https://developer.apple.com/forums/thread/126473
+                    var map = MapNative;
+                    map.SetCenterCoordinate(map.CenterCoordinate, false);
+                }
             });
 
             e.View.AddGestureRecognizer(calloutTapRecognizer);
