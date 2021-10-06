@@ -21,8 +21,8 @@ A more useful maps control for Android &#38; iOS, based off Xamarin.Forms.Maps.
     <Product>$(AssemblyName) ($(TargetFramework))</Product>
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <AssemblyFileVersion>1.0.0.0</AssemblyFileVersion>
-    <Version>1.2.1.0</Version>
-    <PackageVersion>1.2.1.0</PackageVersion>
+    <Version>1.2.2.0</Version>
+    <PackageVersion>1.2.2.0</PackageVersion>
     <Authors>dmariogatto</Authors>
     <Owners>dmariogatto</Owners>
     <NeutralLanguage>en</NeutralLanguage>
@@ -31,7 +31,7 @@ A more useful maps control for Android &#38; iOS, based off Xamarin.Forms.Maps.
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryType>git</RepositoryType>
     <PackageReleaseNotes>
-- Fixed PinInfoLongClicked not fired on iOS
+- Fixed default pin icon not appearing on iOS when ImageSource is null
     </PackageReleaseNotes>
 	</PropertyGroup>
 

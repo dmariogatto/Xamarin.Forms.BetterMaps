@@ -206,7 +206,7 @@ namespace Xamarin.Forms.BetterMaps.iOS
             pin.ImageSourceCts = null;
 
             var imageTask = GetPinImageAsync(fAnnotation.ImageSource, fAnnotation.TintColor);
-            if (imageTask != null)
+            if (!imageTask.IsCompletedSuccessfully || imageTask.Result != null)
             {
                 var cts = new CancellationTokenSource();
                 var tok = cts.Token;
@@ -253,7 +253,10 @@ namespace Xamarin.Forms.BetterMaps.iOS
                 }
 
                 mapPin.Annotation = annotation;
-                ((MKPinAnnotationView)mapPin).PinTintColor = fAnnotation.TintColor;
+                ((MKPinAnnotationView)mapPin).PinTintColor =
+                    !fAnnotation.TintColor.IsEqual(Transparent)
+                    ? fAnnotation.TintColor
+                    : null;
 
                 if (FormsBetterMaps.iOs14OrNewer)
                     mapPin.ZPriority = fAnnotation.ZIndex;
