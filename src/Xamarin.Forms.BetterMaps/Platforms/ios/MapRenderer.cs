@@ -647,7 +647,8 @@ namespace Xamarin.Forms.BetterMaps.iOS
                     switch (MapNative.ViewForAnnotation(annotation))
                     {
                         case MKPinAnnotationView pinView:
-                            pinView.SetValueForKey(annotation.TintColor, new NSString(nameof(pinView.PinTintColor)));
+                            var tintColor = !annotation.TintColor.IsEqual(Transparent) ? annotation.TintColor : null;
+                            pinView.SetValueForKey(tintColor, new NSString(nameof(pinView.PinTintColor)));
                             break;
                         case MKAnnotationView view:
                             var cts = new CancellationTokenSource();
