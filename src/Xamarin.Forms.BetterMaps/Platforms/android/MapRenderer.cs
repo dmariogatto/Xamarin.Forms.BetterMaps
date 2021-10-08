@@ -32,9 +32,13 @@ using AndroidColor = Android.Graphics.Color;
 namespace Xamarin.Forms.BetterMaps.Android
 {
     [Preserve(AllMembers = true)]
-    public class MapRenderer : ViewRenderer<Map, MapView>, IOnMapReadyCallback
+    public class MapRenderer : ViewRenderer<Map, MapView>
     {
         internal static Bundle Bundle { get; set; }
+
+        private static event EventHandler<EventArgs> MapViewCreated;
+        private static event EventHandler<EventArgs> MapViewDestroyed;
+        private static int MapViewCount = 0;
 
         protected readonly TimeSpan ImageCacheTime = TimeSpan.FromMinutes(3);
 
@@ -49,9 +53,7 @@ namespace Xamarin.Forms.BetterMaps.Android
 
         private readonly SemaphoreSlim _imgCacheSemaphore = new SemaphoreSlim(1, 1);
 
-        private static event EventHandler<EventArgs> MapViewCreated;
-        private static event EventHandler<EventArgs> MapViewDestroyed;
-        private static int MapViewCount = 0;
+        private OnMapCallback _onMapCallback;
 
         private bool _disposed;
 
@@ -66,12 +68,6 @@ namespace Xamarin.Forms.BetterMaps.Android
         public MapRenderer(Context context) : base(context)
         {
             AutoPackage = false;
-        }
-
-        void IOnMapReadyCallback.OnMapReady(GoogleMap map)
-        {
-            MapNative = map;
-            OnMapReady(map);
         }
 
         #region Overrides
@@ -103,6 +99,13 @@ namespace Xamarin.Forms.BetterMaps.Android
 
                     Interlocked.Decrement(ref MapViewCount);
                     MapViewDestroyed?.Invoke(this, new EventArgs());
+                }
+
+                if (_onMapCallback != null)
+                {
+                    _onMapCallback.OnGoogleMapReady -= OnGoogleMapReady;
+                    _onMapCallback.Dispose();
+                    _onMapCallback = null;
                 }
             }
 
@@ -162,7 +165,13 @@ namespace Xamarin.Forms.BetterMaps.Android
             {
                 var mapModel = e.NewElement;
 
-                Control.GetMapAsync(this);
+                if (_onMapCallback == null)
+                {
+                    _onMapCallback = new OnMapCallback();
+                    _onMapCallback.OnGoogleMapReady += OnGoogleMapReady;
+                }
+
+                Control.GetMapAsync(_onMapCallback);
 
                 MessagingCenter.Subscribe<Map, MapSpan>(this, Map.MoveToRegionMessageName, OnMoveToRegionMessage, mapModel);
 
@@ -227,23 +236,25 @@ namespace Xamarin.Forms.BetterMaps.Android
         {
             if (map == null) return;
 
+            MapNative = map;
+
             LoadMapStyle(MapNative, MapModel.MapTheme, Context);
 
             MapNative.CameraIdle += OnCameraIdle;
-            map.MarkerClick += OnMarkerClick;
-            map.InfoWindowClick += OnInfoWindowClick;
-            map.InfoWindowClose += OnInfoWindowClose;
-            map.InfoWindowLongClick += OnInfoWindowLongClick;
-            map.MapClick += OnMapClick;
+            MapNative.MarkerClick += OnMarkerClick;
+            MapNative.InfoWindowClick += OnInfoWindowClick;
+            MapNative.InfoWindowClose += OnInfoWindowClose;
+            MapNative.InfoWindowLongClick += OnInfoWindowLongClick;
+            MapNative.MapClick += OnMapClick;
 
-            map.TrafficEnabled = MapModel.TrafficEnabled;
-            map.UiSettings.CompassEnabled = MapModel.ShowCompass;
+            MapNative.TrafficEnabled = MapModel.TrafficEnabled;
+            MapNative.UiSettings.CompassEnabled = MapModel.ShowCompass;
 
-            map.UiSettings.ZoomControlsEnabled = false;
+            MapNative.UiSettings.ZoomControlsEnabled = false;
 
-            map.UiSettings.ZoomGesturesEnabled = MapModel.HasZoomEnabled;
-            map.UiSettings.ScrollGesturesEnabled = MapModel.HasScrollEnabled;
-            map.UiSettings.MapToolbarEnabled = false;
+            MapNative.UiSettings.ZoomGesturesEnabled = MapModel.HasZoomEnabled;
+            MapNative.UiSettings.ScrollGesturesEnabled = MapModel.HasScrollEnabled;
+            MapNative.UiSettings.MapToolbarEnabled = false;
 
             SetUserVisible();
             SetMyLocationButtonEnabled();
@@ -1110,6 +1121,11 @@ namespace Xamarin.Forms.BetterMaps.Android
 
             if (_mapView != null && ChildCount == 0)
                 AddView(_mapView, -1);
+        }
+
+        private void OnGoogleMapReady(object sender, OnGoogleMapReadyEventArgs e)
+        {
+            OnMapReady(e.Map);
         }
 
         private void RemoveMapFromView()
