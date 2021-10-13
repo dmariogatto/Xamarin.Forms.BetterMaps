@@ -268,8 +268,10 @@ namespace Xamarin.Forms.BetterMaps.iOS
         private void MkMapViewOnAnnotationViewSelected(object sender, MKAnnotationViewEventArgs e)
         {
             var annotation = e.View.Annotation;
-
             var pin = GetPinForAnnotation(annotation);
+
+            if (pin == null)
+                return;
 
             if (e.View.GestureRecognizers?.Length > 0)
                 foreach (var r in e.View.GestureRecognizers.ToList())
@@ -286,11 +288,7 @@ namespace Xamarin.Forms.BetterMaps.iOS
                     if (g.State == UIGestureRecognizerState.Began)
                     {
                         OnCalloutAltClicked(annotation);
-
-                        // workaround (long press not registered until map movement)
-                        // https://developer.apple.com/forums/thread/126473
-                        var map = MapNative;
-                        map.SetCenterCoordinate(map.CenterCoordinate, false);
+                        RecenterMap();
                     }
                 });
 
@@ -303,15 +301,12 @@ namespace Xamarin.Forms.BetterMaps.iOS
                 e.View.AddGestureRecognizer(pinTapRecognizer);
             }
 
-            if (pin != null)
+            if (!ReferenceEquals(pin, MapModel.SelectedPin))
             {
-                if (!ReferenceEquals(pin, MapModel.SelectedPin))
-                {
-                    MapModel.SelectedPin = pin;
-                }
-
-                MapModel.SendPinClick(pin);
+                MapModel.SelectedPin = pin;
             }
+
+            MapModel.SendPinClick(pin);
         }
 
         private void MkMapViewOnAnnotationViewDeselected(object sender, MKAnnotationViewEventArgs e)
@@ -330,37 +325,30 @@ namespace Xamarin.Forms.BetterMaps.iOS
             }
         }
 
+        private void RecenterMap()
+        {
+            // workaround (long press not registered until map movement)
+            // https://developer.apple.com/forums/thread/126473
+            var map = MapNative;
+            map.SetCenterCoordinate(map.CenterCoordinate, false);
+        }
+
         private void OnPinClicked(IMKAnnotation annotation)
         {
-            // lookup pin
-            var targetPin = GetPinForAnnotation(annotation);
-
-            // pin not found. Must have been activated outside of forms
-            if (targetPin == null) return;
-
-            MapModel.SendPinClick(targetPin);
+            if (GetPinForAnnotation(annotation) is Pin pin)
+                MapModel.SendPinClick(pin);
         }
 
         private void OnCalloutClicked(IMKAnnotation annotation)
         {
-            // lookup pin
-            var targetPin = GetPinForAnnotation(annotation);
-
-            // pin not found. Must have been activated outside of forms
-            if (targetPin == null) return;
-
-            MapModel.SendInfoWindowClick(targetPin);
+            if (GetPinForAnnotation(annotation) is Pin pin)
+                MapModel.SendInfoWindowClick(pin);
         }
 
         private void OnCalloutAltClicked(IMKAnnotation annotation)
         {
-            // lookup pin
-            var targetPin = GetPinForAnnotation(annotation);
-
-            // pin not found. Must have been activated outside of forms
-            if (targetPin == null) return;
-
-            MapModel.SendInfoWindowLongClick(targetPin);
+            if (GetPinForAnnotation(annotation) is Pin pin)
+                MapModel.SendInfoWindowLongClick(pin);
         }
         #endregion
 
