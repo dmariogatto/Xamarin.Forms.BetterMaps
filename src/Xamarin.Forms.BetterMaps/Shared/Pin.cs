@@ -27,6 +27,9 @@ namespace Xamarin.Forms.BetterMaps
         public static readonly BindableProperty ZIndexProperty =
             BindableProperty.Create(nameof(ZIndex), typeof(int), typeof(Pin));
 
+        public static readonly BindableProperty CanShowInfoWindowProperty =
+            BindableProperty.Create(nameof(CanShowInfoWindow), typeof(bool), typeof(Pin), true);
+
         public Color TintColor
         {
             get => (Color)GetValue(TintColorProperty);
@@ -67,6 +70,12 @@ namespace Xamarin.Forms.BetterMaps
         {
             get => (int)GetValue(ZIndexProperty);
             set => SetValue(ZIndexProperty, value);
+        }
+
+        public bool CanShowInfoWindow
+        {
+            get => (bool)GetValue(CanShowInfoWindowProperty);
+            set => SetValue(CanShowInfoWindowProperty, value);
         }
 
         [EditorBrowsable(EditorBrowsableState.Never)]

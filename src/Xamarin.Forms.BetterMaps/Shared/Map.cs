@@ -161,27 +161,24 @@ namespace Xamarin.Forms.BetterMaps
         public void SendMapClicked(Position position) => MapClicked?.Invoke(this, new MapClickedEventArgs(position));
 
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public bool SendPinClick(Pin pin)
+        public void SendPinClick(Pin pin)
         {
             var args = new PinClickedEventArgs(pin);
             PinClicked?.Invoke(this, args);
-            return args.HideInfoWindow;
         }
 
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public bool SendInfoWindowClick(Pin pin)
+        public void SendInfoWindowClick(Pin pin)
         {
             var args = new PinClickedEventArgs(pin);
             InfoWindowClicked?.Invoke(this, args);
-            return args.HideInfoWindow;
         }
 
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public bool SendInfoWindowLongClick(Pin pin)
+        public void SendInfoWindowLongClick(Pin pin)
         {
             var args = new PinClickedEventArgs(pin);
             InfoWindowLongClicked?.Invoke(this, args);
-            return args.HideInfoWindow;
         }
 
         [EditorBrowsable(EditorBrowsableState.Never)]
