@@ -641,15 +641,18 @@ namespace Xamarin.Forms.BetterMaps.Android
             var marker = e.Marker;
             var pin = GetPinForMarker(marker);
 
+            if (pin == null)
+                return;
+
             if (!ReferenceEquals(pin, MapModel.SelectedPin))
             {
                 MapModel.SelectedPin = pin;
             }
 
-            if (pin == null) return;
-
             if (!pin.CanShowInfoWindow)
                 marker.HideInfoWindow();
+            else
+                marker.ShowInfoWindow();
 
             MapModel.SendPinClick(pin);
         }
@@ -660,22 +663,14 @@ namespace Xamarin.Forms.BetterMaps.Android
 
         private void OnInfoWindowClick(object sender, GoogleMap.InfoWindowClickEventArgs e)
         {
-            var marker = e.Marker;
-            var pin = GetPinForMarker(marker);
-
-            if (pin == null) return;
-
-            MapModel.SendInfoWindowClick(pin);
+            if (GetPinForMarker(e.Marker) is Pin pin)
+                MapModel.SendInfoWindowClick(pin);
         }
 
         private void OnInfoWindowLongClick(object sender, GoogleMap.InfoWindowLongClickEventArgs e)
         {
-            var marker = e.Marker;
-            var pin = GetPinForMarker(marker);
-
-            if (pin == null) return;
-
-            MapModel.SendInfoWindowLongClick(pin);
+            if (GetPinForMarker(e.Marker) is Pin pin)
+                MapModel.SendInfoWindowLongClick(pin);
         }
 
         private void OnPinCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)
