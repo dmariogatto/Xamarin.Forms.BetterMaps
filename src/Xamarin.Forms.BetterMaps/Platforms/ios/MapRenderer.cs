@@ -231,7 +231,7 @@ namespace Xamarin.Forms.BetterMaps.iOS
                 {
                     mapPin.Image = UIImageEmpty.Value;
 
-                    imageTask.ContinueWith(t =>
+                    imageTask.AsTask().ContinueWith(t =>
                     {
                         if (t.IsCompletedSuccessfully && !tok.IsCancellationRequested)
                             ApplyUIImageToView(t.Result, mapPin, tok);
@@ -355,11 +355,22 @@ namespace Xamarin.Forms.BetterMaps.iOS
         #region Map
         private void OnMapClicked(UITapGestureRecognizer recognizer)
         {
-            if (Element == null) return;
+            if (MapModel?.CanSendMapClicked() != true)
+                return;
 
-            var tapPoint = recognizer.LocationInView(Control);
-            var tapGPS = MapNative.ConvertPoint(tapPoint, Control);
-            MapModel.SendMapClicked(new Position(tapGPS.Latitude, tapGPS.Longitude));
+            var mapNative = MapNative;
+
+            var pinTapped = mapNative.Annotations
+                .Select(a => mapNative.ViewForAnnotation(a))
+                .Where(v => v != null)
+                .Any(v => v.PointInside(recognizer.LocationInView(v), null));
+
+            if (!pinTapped)
+            {
+                var tapPoint = recognizer.LocationInView(mapNative);
+                var tapGPS = mapNative.ConvertPoint(tapPoint, Control);
+                MapModel.SendMapClicked(new Position(tapGPS.Latitude, tapGPS.Longitude));
+            }
         }
 
         private void UpdateRegion()
@@ -669,7 +680,7 @@ namespace Xamarin.Forms.BetterMaps.iOS
                             }
                             else
                             {
-                                imageTask.ContinueWith(t =>
+                                imageTask.AsTask().ContinueWith(t =>
                                 {
                                     if (t.IsCompletedSuccessfully && !tok.IsCancellationRequested)
                                         ApplyUIImageToView(t.Result, view, tok);
@@ -699,7 +710,7 @@ namespace Xamarin.Forms.BetterMaps.iOS
                 setImage();
         }
 
-        protected virtual async Task<UIImage> GetPinImageAsync(ImageSource imgSource, UIColor tint)
+        protected virtual async ValueTask<UIImage> GetPinImageAsync(ImageSource imgSource, UIColor tint)
         {
             if (imgSource == null)
                 return default;
@@ -755,7 +766,7 @@ namespace Xamarin.Forms.BetterMaps.iOS
             return image ?? await GetImageAsync(imgSource).ConfigureAwait(false);
         }
 
-        protected virtual async Task<UIImage> GetImageAsync(ImageSource imgSource)
+        protected virtual async ValueTask<UIImage> GetImageAsync(ImageSource imgSource)
         {
             await _imgCacheSemaphore.WaitAsync().ConfigureAwait(false);
 
@@ -785,7 +796,9 @@ namespace Xamarin.Forms.BetterMaps.iOS
                 _imgCacheSemaphore.Release();
             }
 
-            return await (imageTask ?? Task.FromResult(default(UIImage))).ConfigureAwait(false);
+            return imageTask != null
+                ? await imageTask.ConfigureAwait(false)
+                : default(UIImage);
         }
 
         protected Pin GetPinForAnnotation(IMKAnnotation annotation)
