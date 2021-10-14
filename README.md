@@ -46,6 +46,7 @@ __New Pin Properties__
 | `Anchor`                  | The coordinates to anchor the pin (e.g. to centre pin on location `(0.5, 0.5)`) |
 | `ImageSourceProperty`     | Name of file image resource (i.e. custom pin image)                             |
 | `ZIndex`                  | The z-index of the pin                                                          |
+| `CanShowInfoWindow`       | Whether the pin can display the info window when selected                       |
 
 ### Android
 
