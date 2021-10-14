@@ -21,8 +21,8 @@ A more useful maps control for Android &#38; iOS, based off Xamarin.Forms.Maps.
     <Product>$(AssemblyName) ($(TargetFramework))</Product>
     <AssemblyVersion>1.0.0.0</AssemblyVersion>
     <AssemblyFileVersion>1.0.0.0</AssemblyFileVersion>
-    <Version>1.2.3.0</Version>
-    <PackageVersion>1.2.3.0</PackageVersion>
+    <Version>1.3.0.0</Version>
+    <PackageVersion>1.3.0.0</PackageVersion>
     <Authors>dmariogatto</Authors>
     <Owners>dmariogatto</Owners>
     <NeutralLanguage>en</NeutralLanguage>
@@ -31,8 +31,8 @@ A more useful maps control for Android &#38; iOS, based off Xamarin.Forms.Maps.
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryType>git</RepositoryType>
     <PackageReleaseNotes>
-- Fixed default pin icon not appearing on iOS when ImageSource is null
-- Possible fix for 'Java.Interop.JavaLocationException' when loading map on Android
+- Removed `HideInfoWindow` property from `PinClickedEventArgs`
+- Added `CanShowInfoWindow` property to `Pin`
     </PackageReleaseNotes>
 	</PropertyGroup>
 

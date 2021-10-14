@@ -638,18 +638,23 @@ namespace Xamarin.Forms.BetterMaps.Android
 
         private void OnMarkerClick(object sender, GoogleMap.MarkerClickEventArgs e)
         {
-            var pin = GetPinForMarker(e.Marker);
+            var marker = e.Marker;
+            var pin = GetPinForMarker(marker);
+
+            if (pin == null)
+                return;
 
             if (!ReferenceEquals(pin, MapModel.SelectedPin))
             {
                 MapModel.SelectedPin = pin;
             }
 
-            if (pin == null) return;
+            if (!pin.CanShowInfoWindow)
+                marker.HideInfoWindow();
+            else
+                marker.ShowInfoWindow();
 
-            // Setting e.Handled = true will prevent the info window from being presented
-            var handled = MapModel.SendPinClick(pin);
-            e.Handled = handled;
+            MapModel.SendPinClick(pin);
         }
 
         private void OnInfoWindowClose(object sender, GoogleMap.InfoWindowCloseEventArgs e)
@@ -658,26 +663,14 @@ namespace Xamarin.Forms.BetterMaps.Android
 
         private void OnInfoWindowClick(object sender, GoogleMap.InfoWindowClickEventArgs e)
         {
-            var marker = e.Marker;
-            var pin = GetPinForMarker(marker);
-
-            if (pin == null) return;
-
-            // SendInfoWindowClick() returns the value of PinClickedEventArgs.HideInfoWindow
-            var hideInfoWindow = MapModel.SendInfoWindowClick(pin);
-            if (hideInfoWindow) marker.HideInfoWindow();
+            if (GetPinForMarker(e.Marker) is Pin pin)
+                MapModel.SendInfoWindowClick(pin);
         }
 
         private void OnInfoWindowLongClick(object sender, GoogleMap.InfoWindowLongClickEventArgs e)
         {
-            var marker = e.Marker;
-            var pin = GetPinForMarker(marker);
-
-            if (pin == null) return;
-
-            // SendInfoWindowLongClick() returns the value of PinClickedEventArgs.HideInfoWindow
-            var hideInfoWindow = MapModel.SendInfoWindowLongClick(pin);
-            if (hideInfoWindow) marker.HideInfoWindow();
+            if (GetPinForMarker(e.Marker) is Pin pin)
+                MapModel.SendInfoWindowLongClick(pin);
         }
 
         private void OnPinCollectionChanged(object sender, NotifyCollectionChangedEventArgs e)

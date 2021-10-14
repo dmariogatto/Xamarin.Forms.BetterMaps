@@ -217,7 +217,6 @@ namespace Xamarin.Forms.BetterMaps.iOS
                 if (mapPin == null)
                 {
                     mapPin = new MKAnnotationView(annotation, customImgAnnotationId);
-                    mapPin.CanShowCallout = true;
                 }
 
                 mapPin.Annotation = annotation;
@@ -241,6 +240,7 @@ namespace Xamarin.Forms.BetterMaps.iOS
 
                 if (FormsBetterMaps.iOs14OrNewer)
                     mapPin.ZPriority = fAnnotation.ZIndex;
+                mapPin.CanShowCallout = pin.CanShowInfoWindow;
             }
             else
             {
@@ -249,7 +249,6 @@ namespace Xamarin.Forms.BetterMaps.iOS
                 if (mapPin == null)
                 {
                     mapPin = new MKPinAnnotationView(annotation, defaultPinAnnotationId);
-                    mapPin.CanShowCallout = true;
                 }
 
                 mapPin.Annotation = annotation;
@@ -260,6 +259,7 @@ namespace Xamarin.Forms.BetterMaps.iOS
 
                 if (FormsBetterMaps.iOs14OrNewer)
                     mapPin.ZPriority = fAnnotation.ZIndex;
+                mapPin.CanShowCallout = pin.CanShowInfoWindow;
             }
 
             return mapPin;
@@ -270,6 +270,9 @@ namespace Xamarin.Forms.BetterMaps.iOS
             var annotation = e.View.Annotation;
             var pin = GetPinForAnnotation(annotation);
 
+            if (pin == null)
+                return;
+
             if (e.View.GestureRecognizers?.Length > 0)
                 foreach (var r in e.View.GestureRecognizers.ToList())
                 {
@@ -277,35 +280,33 @@ namespace Xamarin.Forms.BetterMaps.iOS
                     r.Dispose();
                 }
 
-            var calloutTapRecognizer = new UITapGestureRecognizer(g => OnCalloutClicked(annotation));
-            var calloutLongRecognizer = new UILongPressGestureRecognizer(g =>
+            if (e.View.CanShowCallout)
             {
-                if (g.State == UIGestureRecognizerState.Began)
+                var calloutTapRecognizer = new UITapGestureRecognizer(g => OnCalloutClicked(annotation));
+                var calloutLongRecognizer = new UILongPressGestureRecognizer(g =>
                 {
-                    OnCalloutAltClicked(annotation);
+                    if (g.State == UIGestureRecognizerState.Began)
+                    {
+                        OnCalloutAltClicked(annotation);
+                        RecenterMap();
+                    }
+                });
 
-                    // workaround (long press not registered until map movement)
-                    // https://developer.apple.com/forums/thread/126473
-                    var map = MapNative;
-                    map.SetCenterCoordinate(map.CenterCoordinate, false);
-                }
-            });
-
-            e.View.AddGestureRecognizer(calloutTapRecognizer);
-            e.View.AddGestureRecognizer(calloutLongRecognizer);
-
-            if (pin != null)
-            {
-                if (!ReferenceEquals(pin, MapModel.SelectedPin))
-                {
-                    MapModel.SelectedPin = pin;
-                }
-
-                // SendMarkerClick() returns the value of PinClickedEventArgs.HideInfoWindow
-                // Hide the info window by deselecting the annotation
-                var deselect = MapModel.SendPinClick(pin);
-                if (deselect) MapNative.DeselectAnnotation(annotation, false);
+                e.View.AddGestureRecognizer(calloutTapRecognizer);
+                e.View.AddGestureRecognizer(calloutLongRecognizer);
             }
+            else
+            {
+                var pinTapRecognizer = new UITapGestureRecognizer(g => OnPinClicked(annotation));
+                e.View.AddGestureRecognizer(pinTapRecognizer);
+            }
+
+            if (!ReferenceEquals(pin, MapModel.SelectedPin))
+            {
+                MapModel.SelectedPin = pin;
+            }
+
+            MapModel.SendPinClick(pin);
         }
 
         private void MkMapViewOnAnnotationViewDeselected(object sender, MKAnnotationViewEventArgs e)
@@ -324,30 +325,30 @@ namespace Xamarin.Forms.BetterMaps.iOS
             }
         }
 
+        private void RecenterMap()
+        {
+            // workaround (long press not registered until map movement)
+            // https://developer.apple.com/forums/thread/126473
+            var map = MapNative;
+            map.SetCenterCoordinate(map.CenterCoordinate, false);
+        }
+
+        private void OnPinClicked(IMKAnnotation annotation)
+        {
+            if (GetPinForAnnotation(annotation) is Pin pin)
+                MapModel.SendPinClick(pin);
+        }
+
         private void OnCalloutClicked(IMKAnnotation annotation)
         {
-            // lookup pin
-            var targetPin = GetPinForAnnotation(annotation);
-
-            // pin not found. Must have been activated outside of forms
-            if (targetPin == null) return;
-
-            // SendInfoWindowClick() returns the value of PinClickedEventArgs.HideInfoWindow
-            // Hide the info window by deselecting the annotation
-            var deselect = MapModel.SendInfoWindowClick(targetPin);
-            if (deselect) MapNative.DeselectAnnotation(annotation, true);
+            if (GetPinForAnnotation(annotation) is Pin pin)
+                MapModel.SendInfoWindowClick(pin);
         }
 
         private void OnCalloutAltClicked(IMKAnnotation annotation)
         {
-            // lookup pin
-            var targetPin = GetPinForAnnotation(annotation);
-
-            // pin not found. Must have been activated outside of forms
-            if (targetPin == null) return;
-
-            var deselect = MapModel.SendInfoWindowLongClick(targetPin);
-            if (deselect) MapNative.DeselectAnnotation(annotation, true);
+            if (GetPinForAnnotation(annotation) is Pin pin)
+                MapModel.SendInfoWindowLongClick(pin);
         }
         #endregion
 
@@ -636,6 +637,11 @@ namespace Xamarin.Forms.BetterMaps.iOS
                 {
                     if (FormsBetterMaps.iOs14OrNewer && MapNative.ViewForAnnotation(annotation) is MKAnnotationView view)
                         view.SetValueForKey(new NSNumber((float)annotation.ZIndex), new NSString(nameof(view.ZPriority)));
+                }
+                else if (e.PropertyName == Pin.CanShowInfoWindowProperty.PropertyName)
+                {
+                    if (MapNative.ViewForAnnotation(annotation) is MKAnnotationView view)
+                        view.CanShowCallout = pin.CanShowInfoWindow;
                 }
                 else if (e.PropertyName == Pin.ImageSourceProperty.PropertyName ||
                          e.PropertyName == Pin.TintColorProperty.PropertyName)
