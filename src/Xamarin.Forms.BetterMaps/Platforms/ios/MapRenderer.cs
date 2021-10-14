@@ -355,11 +355,22 @@ namespace Xamarin.Forms.BetterMaps.iOS
         #region Map
         private void OnMapClicked(UITapGestureRecognizer recognizer)
         {
-            if (Element == null) return;
+            if (MapModel?.CanSendMapClicked() != true)
+                return;
 
-            var tapPoint = recognizer.LocationInView(Control);
-            var tapGPS = MapNative.ConvertPoint(tapPoint, Control);
-            MapModel.SendMapClicked(new Position(tapGPS.Latitude, tapGPS.Longitude));
+            var mapNative = MapNative;
+
+            var pinTapped = mapNative.Annotations
+                .Select(a => mapNative.ViewForAnnotation(a))
+                .Where(v => v != null)
+                .Any(v => v.PointInside(recognizer.LocationInView(v), null));
+
+            if (!pinTapped)
+            {
+                var tapPoint = recognizer.LocationInView(mapNative);
+                var tapGPS = mapNative.ConvertPoint(tapPoint, Control);
+                MapModel.SendMapClicked(new Position(tapGPS.Latitude, tapGPS.Longitude));
+            }
         }
 
         private void UpdateRegion()
