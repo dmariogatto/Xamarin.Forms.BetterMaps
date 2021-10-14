@@ -298,7 +298,7 @@ namespace Xamarin.Forms.BetterMaps.Android
 
                 opts.SetIcon(BitmapDescriptorFactory.FromBitmap(BitmapEmpty.Value));
 
-                imageTask.ContinueWith(t =>
+                imageTask.AsTask().ContinueWith(t =>
                 {
                     if (t.IsCompletedSuccessfully && !tok.IsCancellationRequested)
                         ApplyBitmapToMarker(t.Result, pin, tok);
@@ -514,7 +514,7 @@ namespace Xamarin.Forms.BetterMaps.Android
                     var tok = cts.Token;
                     pin.ImageSourceCts = cts;
 
-                    imageTask.ContinueWith(t =>
+                    imageTask.AsTask().ContinueWith(t =>
                     {
                         if (t.IsCompletedSuccessfully && !tok.IsCancellationRequested)
                             ApplyBitmapToMarker(t.Result, pin, tok);
@@ -545,7 +545,7 @@ namespace Xamarin.Forms.BetterMaps.Android
                 setBitmap();
         }
 
-        protected virtual async Task<Bitmap> GetPinImageAsync(ImageSource imgSource, AndroidColor tint)
+        protected virtual async ValueTask<Bitmap> GetPinImageAsync(ImageSource imgSource, AndroidColor tint)
         {
             if (imgSource == null)
                 return default;
@@ -597,7 +597,7 @@ namespace Xamarin.Forms.BetterMaps.Android
             return image ?? await GetImageAsync(imgSource).ConfigureAwait(false);
         }
 
-        protected virtual async Task<Bitmap> GetImageAsync(ImageSource imgSource)
+        protected virtual async ValueTask<Bitmap> GetImageAsync(ImageSource imgSource)
         {
             await _imgCacheSemaphore.WaitAsync().ConfigureAwait(false);
 
@@ -627,7 +627,9 @@ namespace Xamarin.Forms.BetterMaps.Android
                 _imgCacheSemaphore.Release();
             }
 
-            return await (imageTask ?? Task.FromResult(default(Bitmap))).ConfigureAwait(false);
+            return imageTask != null
+                ? await imageTask.ConfigureAwait(false)
+                : default(Bitmap);
         }
 
         protected Marker GetMarkerForPin(Pin pin)
