@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Threading;
 
@@ -6,6 +7,12 @@ namespace Xamarin.Forms.BetterMaps
 {
     public class Pin : Element
     {
+        public static readonly BindableProperty PinIdProperty =
+            BindableProperty.Create(nameof(PinId), typeof(Guid), typeof(Pin), default(Guid));
+
+        public static readonly BindableProperty TagsProperty =
+            BindableProperty.Create(nameof(Tags), typeof(Dictionary<string, string>), typeof(Pin), new Dictionary<string, string>());
+    
         public static readonly BindableProperty TintColorProperty =
             BindableProperty.Create(nameof(TintColor), typeof(Color), typeof(Pin), Color.Transparent);
 
@@ -30,6 +37,18 @@ namespace Xamarin.Forms.BetterMaps
         public static readonly BindableProperty CanShowInfoWindowProperty =
             BindableProperty.Create(nameof(CanShowInfoWindow), typeof(bool), typeof(Pin), true);
 
+        public Guid PinId
+        {
+            get => (Guid)GetValue(PinIdProperty);
+            set => SetValue(PinIdProperty, value);
+        }
+        
+        public Dictionary<string, string> Tags
+        {
+            get => (Dictionary<string, string>)GetValue(TagsProperty);
+            set => SetValue(TagsProperty, value);
+        }
+        
         public Color TintColor
         {
             get => (Color)GetValue(TintColorProperty);
@@ -104,7 +123,8 @@ namespace Xamarin.Forms.BetterMaps
         public static bool operator !=(Pin left, Pin right)
             => !Equals(left, right);
 
-        private bool Equals(Pin other) => other is Pin pin &&
+        private bool Equals(Pin other) => other is Pin pin && 
+            PinId == pin.PinId &&
             TintColor == pin.TintColor &&
             Label == pin.Label &&
             Address == pin.Address &&
