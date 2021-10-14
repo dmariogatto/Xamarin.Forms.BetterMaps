@@ -33,6 +33,7 @@ A more useful maps control for Android &#38; iOS, based off Xamarin.Forms.Maps.
     <PackageReleaseNotes>
 - Removed `HideInfoWindow` property from `PinClickedEventArgs`
 - Added `CanShowInfoWindow` property to `Pin`
+- Fixed `MapClicked` firing when Pin is clicked (iOS)
     </PackageReleaseNotes>
 	</PropertyGroup>
 
