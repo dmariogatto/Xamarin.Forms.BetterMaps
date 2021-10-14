@@ -231,7 +231,7 @@ namespace Xamarin.Forms.BetterMaps.iOS
                 {
                     mapPin.Image = UIImageEmpty.Value;
 
-                    imageTask.ContinueWith(t =>
+                    imageTask.AsTask().ContinueWith(t =>
                     {
                         if (t.IsCompletedSuccessfully && !tok.IsCancellationRequested)
                             ApplyUIImageToView(t.Result, mapPin, tok);
@@ -680,7 +680,7 @@ namespace Xamarin.Forms.BetterMaps.iOS
                             }
                             else
                             {
-                                imageTask.ContinueWith(t =>
+                                imageTask.AsTask().ContinueWith(t =>
                                 {
                                     if (t.IsCompletedSuccessfully && !tok.IsCancellationRequested)
                                         ApplyUIImageToView(t.Result, view, tok);
@@ -710,7 +710,7 @@ namespace Xamarin.Forms.BetterMaps.iOS
                 setImage();
         }
 
-        protected virtual async Task<UIImage> GetPinImageAsync(ImageSource imgSource, UIColor tint)
+        protected virtual async ValueTask<UIImage> GetPinImageAsync(ImageSource imgSource, UIColor tint)
         {
             if (imgSource == null)
                 return default;
@@ -766,7 +766,7 @@ namespace Xamarin.Forms.BetterMaps.iOS
             return image ?? await GetImageAsync(imgSource).ConfigureAwait(false);
         }
 
-        protected virtual async Task<UIImage> GetImageAsync(ImageSource imgSource)
+        protected virtual async ValueTask<UIImage> GetImageAsync(ImageSource imgSource)
         {
             await _imgCacheSemaphore.WaitAsync().ConfigureAwait(false);
 
@@ -796,7 +796,9 @@ namespace Xamarin.Forms.BetterMaps.iOS
                 _imgCacheSemaphore.Release();
             }
 
-            return await (imageTask ?? Task.FromResult(default(UIImage))).ConfigureAwait(false);
+            return imageTask != null
+                ? await imageTask.ConfigureAwait(false)
+                : default(UIImage);
         }
 
         protected Pin GetPinForAnnotation(IMKAnnotation annotation)
