@@ -273,14 +273,42 @@ namespace Xamarin.Forms.BetterMaps.iOS
             if (pin == null)
                 return;
 
-            if (e.View.GestureRecognizers?.Length > 0)
-                foreach (var r in e.View.GestureRecognizers.ToList())
-                {
-                    e.View.RemoveGestureRecognizer(r);
-                    r.Dispose();
-                }
+            RemoveViewTouchGestures(e.View);
+            AddAnnotationTouchGestures(e.View);
 
-            if (e.View.CanShowCallout)
+            if (!ReferenceEquals(pin, MapModel.SelectedPin))
+                MapModel.SelectedPin = pin;
+
+            MapModel.SendPinClick(pin);
+        }
+
+        private void MkMapViewOnAnnotationViewDeselected(object sender, MKAnnotationViewEventArgs e)
+        {
+            var annotation = e.View.Annotation;
+            var pin = GetPinForAnnotation(annotation);
+
+            RemoveViewTouchGestures(e.View);
+
+            if (pin == null)
+                return;
+
+            if (ReferenceEquals(MapModel.SelectedPin, pin))
+                MapModel.SelectedPin = null;
+        }
+
+        private void RecenterMap()
+        {
+            // workaround (long press not registered until map movement)
+            // https://developer.apple.com/forums/thread/126473
+            var map = MapNative;
+            map.SetCenterCoordinate(map.CenterCoordinate, false);
+        }
+
+        private void AddAnnotationTouchGestures(MKAnnotationView view)
+        {
+            var annotation = view.Annotation;
+
+            if (view.CanShowCallout)
             {
                 var calloutTapRecognizer = new UITapGestureRecognizer(g => OnCalloutClicked(annotation));
                 var calloutLongRecognizer = new UILongPressGestureRecognizer(g =>
@@ -292,45 +320,14 @@ namespace Xamarin.Forms.BetterMaps.iOS
                     }
                 });
 
-                e.View.AddGestureRecognizer(calloutTapRecognizer);
-                e.View.AddGestureRecognizer(calloutLongRecognizer);
+                view.AddGestureRecognizer(calloutTapRecognizer);
+                view.AddGestureRecognizer(calloutLongRecognizer);
             }
             else
             {
                 var pinTapRecognizer = new UITapGestureRecognizer(g => OnPinClicked(annotation));
-                e.View.AddGestureRecognizer(pinTapRecognizer);
+                view.AddGestureRecognizer(pinTapRecognizer);
             }
-
-            if (!ReferenceEquals(pin, MapModel.SelectedPin))
-            {
-                MapModel.SelectedPin = pin;
-            }
-
-            MapModel.SendPinClick(pin);
-        }
-
-        private void MkMapViewOnAnnotationViewDeselected(object sender, MKAnnotationViewEventArgs e)
-        {
-            if (e.View.GestureRecognizers?.Length > 0)
-                foreach (var r in e.View.GestureRecognizers.ToList())
-                {
-                    e.View.RemoveGestureRecognizer(r);
-                    r.Dispose();
-                }
-
-            if (GetPinForAnnotation(e.View.Annotation) is Pin pin &&
-                ReferenceEquals(MapModel.SelectedPin, pin))
-            {
-                MapModel.SelectedPin = null;
-            }
-        }
-
-        private void RecenterMap()
-        {
-            // workaround (long press not registered until map movement)
-            // https://developer.apple.com/forums/thread/126473
-            var map = MapNative;
-            map.SetCenterCoordinate(map.CenterCoordinate, false);
         }
 
         private void OnPinClicked(IMKAnnotation annotation)
@@ -355,19 +352,13 @@ namespace Xamarin.Forms.BetterMaps.iOS
         #region Map
         private void OnMapClicked(UITapGestureRecognizer recognizer)
         {
-            if (MapModel?.CanSendMapClicked() != true)
-                return;
-
             var mapNative = MapNative;
 
-            var pinTapped = mapNative.Annotations
-                .Select(a => mapNative.ViewForAnnotation(a))
-                .Where(v => v != null)
-                .Any(v => v.PointInside(recognizer.LocationInView(v), null));
+            var tapPoint = recognizer.LocationInView(mapNative);
+            var view = MapNative.HitTest(tapPoint, null);
 
-            if (!pinTapped)
+            if (view is not MKAnnotationView && view?.Superview is not MKAnnotationView)
             {
-                var tapPoint = recognizer.LocationInView(mapNative);
                 var tapGPS = mapNative.ConvertPoint(tapPoint, Control);
                 MapModel.SendMapClicked(new Position(tapGPS.Latitude, tapGPS.Longitude));
             }
@@ -994,6 +985,18 @@ namespace Xamarin.Forms.BetterMaps.iOS
 
             if (mapNative.Overlays?.Length > 0)
                 mapNative.RemoveOverlays(mapNative.Overlays.ToArray());
+        }
+
+        private static void RemoveViewTouchGestures(UIView view)
+        {
+            if (view?.GestureRecognizers == null || view.GestureRecognizers.Length == 0)
+                return;
+
+            foreach (var r in view.GestureRecognizers.ToList())
+            {
+                view.RemoveGestureRecognizer(r);
+                r.Dispose();
+            }
         }
     }
 }

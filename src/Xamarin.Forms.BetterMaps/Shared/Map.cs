@@ -158,8 +158,6 @@ namespace Xamarin.Forms.BetterMaps
         public event EventHandler<PinClickedEventArgs> InfoWindowLongClicked;
 
         [EditorBrowsable(EditorBrowsableState.Never)]
-        public bool CanSendMapClicked() => MapClicked != null;
-        [EditorBrowsable(EditorBrowsableState.Never)]
         public void SendMapClicked(Position position) => MapClicked?.Invoke(this, new MapClickedEventArgs(position));
 
         [EditorBrowsable(EditorBrowsableState.Never)]
