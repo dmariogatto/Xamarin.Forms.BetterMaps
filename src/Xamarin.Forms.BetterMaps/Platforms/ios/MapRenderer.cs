@@ -36,6 +36,7 @@ namespace Xamarin.Forms.BetterMaps.iOS
         private bool _init = true;
 
         private UITapGestureRecognizer _mapClickedGestureRecognizer;
+        private UITapGestureRecognizer _mapDoubleClickedGestureRecognizer;
 
         protected MKUserTrackingButton UserTrackingButton;
 
@@ -104,7 +105,13 @@ namespace Xamarin.Forms.BetterMaps.iOS
                 MapNative.DidSelectAnnotationView += MkMapViewOnAnnotationViewSelected;
                 MapNative.DidDeselectAnnotationView += MkMapViewOnAnnotationViewDeselected;
                 MapNative.RegionChanged += MkMapViewOnRegionChanged;
-                MapNative.AddGestureRecognizer(_mapClickedGestureRecognizer = new UITapGestureRecognizer(OnMapClicked));
+
+                _mapClickedGestureRecognizer = new UITapGestureRecognizer(OnMapClicked);
+                _mapDoubleClickedGestureRecognizer = new UITapGestureRecognizer() { NumberOfTapsRequired = 2 };
+                _mapClickedGestureRecognizer.RequireGestureRecognizerToFail(_mapDoubleClickedGestureRecognizer);
+
+                MapNative.AddGestureRecognizer(_mapClickedGestureRecognizer);
+                MapNative.AddGestureRecognizer(_mapDoubleClickedGestureRecognizer);
 
                 MessagingCenter.Subscribe<Map, MapSpan>(this, Map.MoveToRegionMessageName, (s, a) => MoveToRegion(a), mapModel);
 
@@ -975,7 +982,10 @@ namespace Xamarin.Forms.BetterMaps.iOS
 
             if (_mapClickedGestureRecognizer != null)
             {
+                mapNative.RemoveGestureRecognizer(_mapDoubleClickedGestureRecognizer);
                 mapNative.RemoveGestureRecognizer(_mapClickedGestureRecognizer);
+                _mapDoubleClickedGestureRecognizer.Dispose();
+                _mapDoubleClickedGestureRecognizer = null;
                 _mapClickedGestureRecognizer.Dispose();
                 _mapClickedGestureRecognizer = null;
             }
