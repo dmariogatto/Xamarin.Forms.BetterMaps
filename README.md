@@ -1,5 +1,8 @@
 # Xamarin.Forms.BetterMaps
 
+__‼ MAUI Port ‼__
+[Maui.Controls.BetterMaps](https://github.com/dmariogatto/Maui.Controls.BetterMaps)
+
 [![](https://img.shields.io/nuget/v/Xamarin.Forms.BetterMaps.svg)](https://nuget.org/packages/Xamarin.Forms.BetterMaps)
 
 A more useful maps control for Android & iOS, based off of [Xamarin.Forms.Maps](https://nuget.org/packages/Xamarin.Forms.Maps).
