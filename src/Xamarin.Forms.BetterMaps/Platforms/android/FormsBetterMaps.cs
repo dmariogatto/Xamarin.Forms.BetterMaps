@@ -16,13 +16,21 @@ namespace Xamarin
 	{
 		internal static readonly Dictionary<MapTheme, string> AssetFileNames = new Dictionary<MapTheme, string>();
 
-		public static bool IsInitialized { get; private set; }
+        public static bool IsInitialized { get; private set; }
 		public static IMapCache Cache { get; private set; }
 
+#if ANDROID12
+        public static void Init(Activity activity, Bundle bundle,
+			IMapCache mapCache = null,
+			GoogleMapsRenderer renderer = GoogleMapsRenderer.Latest,
+			Action<MapsInitializer.Renderer> onGoogleMapsSdkInitialized = null)
+#else
 		public static void Init(Activity activity, Bundle bundle, IMapCache mapCache = null)
-		{
-			if (IsInitialized)
+#endif
+        {
+            if (IsInitialized)
 				return;
+
 			IsInitialized = true;
 			Cache = mapCache;
 
@@ -34,19 +42,47 @@ namespace Xamarin
 			{
 				try
 				{
+#if ANDROID12
+					var rendererCallback = default(OnMapsSdkInitializedCallback);
+					if (onGoogleMapsSdkInitialized is not null)
+					{
+                        void onMapsSdkInitialized(object sender, OnGoogleMapsSdkInitializedEventArgs args)
+						{
+							onGoogleMapsSdkInitialized?.Invoke(args.Renderer);
+
+							if (rendererCallback is not null)
+							{
+								rendererCallback.OnGoogleMapsSdkInitialized -= onMapsSdkInitialized;
+								rendererCallback.Dispose();
+								rendererCallback = null;
+							}
+						}
+
+                        rendererCallback = new OnMapsSdkInitializedCallback();
+                        rendererCallback.OnGoogleMapsSdkInitialized += onMapsSdkInitialized;
+					}
+
+                    _ = renderer switch
+                    {
+                        GoogleMapsRenderer.Legacy => MapsInitializer.Initialize(activity, MapsInitializer.Renderer.Legacy, rendererCallback),
+                        _ => MapsInitializer.Initialize(activity, MapsInitializer.Renderer.Latest, rendererCallback),
+                    };
+#else
 					MapsInitializer.Initialize(activity);
-				}
-				catch (Exception e)
+#endif
+
+                }
+                catch (Exception e)
 				{
 					Console.WriteLine("Google Play Services Not Found");
 					Console.WriteLine("Exception: {0}", e);
 				}
 			}
 
-			new GeocoderBackend(activity).Register();
+			GeocoderBackend.Register(activity);
 		}
 
-		public static void SetLightThemeAsset(string assetFileName)
+        public static void SetLightThemeAsset(string assetFileName)
 			=> AssetFileNames[MapTheme.Light] = assetFileName;
 
 		public static void SetDarkThemeAsset(string assetFileName)
