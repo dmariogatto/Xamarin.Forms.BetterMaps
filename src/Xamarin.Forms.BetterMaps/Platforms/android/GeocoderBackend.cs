@@ -6,31 +6,31 @@ using AGeocoder = Android.Locations.Geocoder;
 
 namespace Xamarin.Forms.BetterMaps.Android
 {
-    internal class GeocoderBackend
+    internal static class GeocoderBackend
 	{
-		private readonly Context _context;
+		private static Context Context;
 
-        private AGeocoder _geocoder;
-        private AGeocoder AndroidGeocoder => _geocoder ??= new AGeocoder(_context);
+        private static AGeocoder AGeocoder;
+        private static AGeocoder AndroidGeocoder => AGeocoder ??= new AGeocoder(Context);
 
-		public GeocoderBackend(Context context)
+		public static void Register(Context context)
 		{
-			_context = context;
+			if (Context is not null)
+				return;
+
+			Context = context;
+
+            Geocoder.GetPositionsForAddressAsyncFunc = GetPositionsForAddressAsync;
+            Geocoder.GetAddressesForPositionFuncAsync = GetAddressesForPositionAsync;
 		}
 
-		public void Register()
-		{
-			Geocoder.GetPositionsForAddressAsyncFunc = GetPositionsForAddressAsync;
-			Geocoder.GetAddressesForPositionFuncAsync = GetAddressesForPositionAsync;
-		}
-
-		public async Task<IEnumerable<Position>> GetPositionsForAddressAsync(string address)
+		public static async Task<IEnumerable<Position>> GetPositionsForAddressAsync(string address)
 		{
 			var addresses = await AndroidGeocoder.GetFromLocationNameAsync(address, 5);
 			return addresses.Select(p => new Position(p.Latitude, p.Longitude));
 		}
 
-		public async Task<IEnumerable<string>> GetAddressesForPositionAsync(Position position)
+		public static async Task<IEnumerable<string>> GetAddressesForPositionAsync(Position position)
 		{
 			var addresses = await AndroidGeocoder.GetFromLocationAsync(position.Latitude, position.Longitude, 5);
 			return addresses.Select(p =>
